@@ -23,8 +23,13 @@ export default function Login() {
       await login(email, senha, tipo);
       navigate("/dashboard");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao fazer login";
-      setError(msg);
+      const rawMessage = err instanceof Error ? err.message : "Erro ao fazer login";
+      const message =
+        tipo === "pessoa" && rawMessage.toLowerCase().includes("invalid")
+          ? "Credenciais de admin inválidas para /login-pessoa."
+          : rawMessage;
+
+      setError(message);
       console.error("[Login] Error:", err);
     } finally {
       setLoading(false);
@@ -34,7 +39,6 @@ export default function Login() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
       <div className="w-full max-w-sm animate-fade-in">
-        {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-elevated">
             <Cpu className="h-8 w-8 text-primary-foreground" />
@@ -43,19 +47,17 @@ export default function Login() {
           <p className="text-sm text-muted-foreground">Faça login para continuar</p>
         </div>
 
-        {/* Tipo toggle */}
         <div className="mb-6 flex rounded-xl bg-secondary p-1">
           {(["cliente", "pessoa"] as const).map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTipo(t)}
               className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                tipo === t
-                  ? "bg-card text-foreground shadow-card"
-                  : "text-muted-foreground"
+                tipo === t ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
               }`}
             >
-              {t === "cliente" ? "Cliente" : "Pessoa"}
+              {t === "cliente" ? "Cliente" : "Admin"}
             </button>
           ))}
         </div>
@@ -85,11 +87,7 @@ export default function Login() {
             />
           </div>
 
-          {error && (
-            <div className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
+          {error && <div className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
           <Button type="submit" disabled={loading} className="h-12 rounded-xl text-base font-semibold">
             {loading ? (
@@ -98,7 +96,7 @@ export default function Login() {
                 Entrando...
               </>
             ) : (
-              "Entrar"
+              `Entrar como ${tipo === "cliente" ? "cliente" : "admin"}`
             )}
           </Button>
         </form>

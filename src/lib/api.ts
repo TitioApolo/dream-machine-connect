@@ -1,5 +1,7 @@
 const API_BASE = "https://dreams-machine-7e6a3c0a6e6e.herokuapp.com";
 
+export type LoginTipo = "cliente" | "pessoa";
+
 export function getToken(): string | null {
   return localStorage.getItem("token");
 }
@@ -11,9 +13,20 @@ export function setToken(token: string) {
 export function clearToken() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+  localStorage.removeItem("auth_tipo");
 }
 
-export function getUser(): { email: string; name: string } | null {
+export function getAuthTipo(): LoginTipo | null {
+  const tipo = localStorage.getItem("auth_tipo");
+  if (tipo === "cliente" || tipo === "pessoa") return tipo;
+  return null;
+}
+
+export function setAuthTipo(tipo: LoginTipo) {
+  localStorage.setItem("auth_tipo", tipo);
+}
+
+export function getUser(): { email: string; name: string; tipo?: LoginTipo } | null {
   const raw = localStorage.getItem("user");
   if (!raw) return null;
   try {
@@ -23,7 +36,7 @@ export function getUser(): { email: string; name: string } | null {
   }
 }
 
-export function setUser(user: { email: string; name: string }) {
+export function setUser(user: { email: string; name: string; tipo?: LoginTipo }) {
   localStorage.setItem("user", JSON.stringify(user));
 }
 
@@ -32,9 +45,27 @@ interface LoginPayload {
   senha: string;
 }
 
-export async function loginCliente(payload: LoginPayload) {
-  const url = `${API_BASE}/login-cliente`;
-  console.log("[API] POST", url);
+interface LoginResponse {
+  token?: string;
+  email?: string;
+  name?: string;
+  error?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
+async function parseResponse(res: Response): Promise<unknown> {
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return res.json();
+  }
+  return res.text();
+}
+
+async function doLogin(path: "/login-cliente" | "/login-pessoa", payload: LoginPayload) {
+  const url = `${API_BASE}${path}`;
+  console.log("[AUTH] POST", url);
+  console.log("[AUTH] Body:", { email: payload.email, senha: "***" });
 
   const res = await fetch(url, {
     method: "POST",
@@ -42,28 +73,36 @@ export async function loginCliente(payload: LoginPayload) {
     body: JSON.stringify(payload),
   });
 
-  const data = await res.json();
-  console.log("[API] Login response:", data);
+  const data = (await parseResponse(res)) as LoginResponse;
+  console.log("[AUTH] Response status:", res.status);
+  console.log("[AUTH] Response body:", data);
 
-  if (!res.ok) throw new Error(data.message || "Erro ao fazer login");
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || "Erro ao fazer login");
+  }
+
+  if (!data?.token || typeof data.token !== "string") {
+    throw new Error("Token JWT inválido ou ausente na resposta do login.");
+  }
+
   return data;
 }
 
+export async function loginCliente(payload: LoginPayload) {
+  return doLogin("/login-cliente", payload);
+}
+
 export async function loginPessoa(payload: LoginPayload) {
-  const url = `${API_BASE}/login-pessoa`;
-  console.log("[API] POST", url);
+  return doLogin("/login-pessoa", payload);
+}
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await res.json();
-  console.log("[API] Login response:", data);
-
-  if (!res.ok) throw new Error(data.message || "Erro ao fazer login");
-  return data;
+function buildAuthHeaders(token: string, headers?: HeadersInit): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+    "x-access-token": token,
+    ...headers,
+  };
 }
 
 export async function apiFetch<T = unknown>(
@@ -73,37 +112,54 @@ export async function apiFetch<T = unknown>(
   const token = getToken();
   const url = `${API_BASE}${path}`;
 
-  console.log("[API] Fetching:", url);
-  console.log("[API] Token:", token ? `${token.slice(0, 20)}...` : "MISSING");
+  console.log("[API] URL:", url);
+  console.log("[API] Token:", token ? `${token.slice(0, 24)}...` : "MISSING");
 
-  if (!token) {
+  if (!token || token.trim().length === 0) {
     throw new Error("Token não encontrado. Faça login novamente.");
   }
 
+  const headers = buildAuthHeaders(token, options.headers);
+  console.log("[API] Headers:", headers);
+
   const res = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
+    headers,
   });
 
-  console.log("[API] Response status:", res.status);
-
-  if (res.status === 401) {
-    clearToken();
-    window.location.href = "/login";
-    throw new Error("Sessão expirada. Faça login novamente.");
-  }
+  const rawData = await parseResponse(res);
+  console.log("[API] Status:", res.status);
+  console.log("[API] Response:", rawData);
 
   if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    console.error("[API] Error:", errData);
-    throw new Error(errData.message || `Erro ${res.status}`);
+    const errorMessage =
+      typeof rawData === "object" && rawData !== null
+        ? ((rawData as { error?: string; message?: string }).error ||
+           (rawData as { error?: string; message?: string }).message)
+        : undefined;
+
+    if (res.status === 401) {
+      throw new Error(errorMessage || "401 Unauthorized: token inválido, expirado ou sem permissão.");
+    }
+
+    throw new Error(errorMessage || `Erro ${res.status} em ${path}`);
   }
 
-  const data = await res.json();
-  console.log("[API] Response data:", data);
-  return data as T;
+  return rawData as T;
+}
+
+export async function apiFetchFirst<T = unknown>(paths: string[], options: RequestInit = {}): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (const path of paths) {
+    try {
+      return await apiFetch<T>(path, options);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error("Erro desconhecido");
+      lastError = err;
+      console.warn(`[API] Falha em ${path}:`, err.message);
+    }
+  }
+
+  throw lastError ?? new Error("Nenhuma rota disponível para esta requisição.");
 }

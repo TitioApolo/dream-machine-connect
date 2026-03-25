@@ -1,13 +1,13 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Cpu, Receipt, Gift, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, Receipt, Wallet, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/dashboard", label: "Início", icon: LayoutDashboard },
   { path: "/maquinas", label: "Máquinas", icon: Cpu },
+  { path: "/pagamentos", label: "Pagamentos", icon: Wallet },
   { path: "/transacoes", label: "Transações", icon: Receipt },
-  { path: "/premios", label: "Prêmios", icon: Gift },
 ];
 
 export function MobileLayout() {
@@ -22,11 +22,14 @@ export function MobileLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-border bg-card px-4 py-3 shadow-card">
         <div>
           <h1 className="font-display text-lg font-bold text-foreground">Dreams Machine</h1>
-          {user && <p className="text-xs text-muted-foreground">{user.name || user.email}</p>}
+          {user && (
+            <p className="text-xs text-muted-foreground">
+              {user.name || user.email} • {user.tipo === "pessoa" ? "Admin" : "Cliente"}
+            </p>
+          )}
         </div>
         <button
           onClick={handleLogout}
@@ -37,12 +40,10 @@ export function MobileLayout() {
         </button>
       </header>
 
-      {/* Content */}
       <main className="flex-1 overflow-y-auto p-4 pb-24">
         <Outlet />
       </main>
 
-      {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-elevated">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {
@@ -53,9 +54,7 @@ export function MobileLayout() {
                 onClick={() => navigate(item.path)}
                 className={cn(
                   "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs transition-colors",
-                  isActive
-                    ? "font-semibold text-primary"
-                    : "text-muted-foreground active:text-foreground"
+                  isActive ? "font-semibold text-primary" : "text-muted-foreground active:text-foreground"
                 )}
               >
                 <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />

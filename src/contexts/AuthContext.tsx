@@ -1,9 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { getToken, getUser, setToken, setUser, clearToken, loginCliente, loginPessoa } from "@/lib/api";
+import {
+  getToken,
+  getUser,
+  setToken,
+  setUser,
+  clearToken,
+  loginCliente,
+  loginPessoa,
+  setAuthTipo,
+  getAuthTipo,
+  type LoginTipo,
+} from "@/lib/api";
 
 interface User {
   email: string;
   name: string;
+  tipo: LoginTipo;
 }
 
 interface AuthContextType {
@@ -11,7 +23,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, senha: string, tipo: "cliente" | "pessoa") => Promise<void>;
+  login: (email: string, senha: string, tipo: LoginTipo) => Promise<void>;
   logout: () => void;
 }
 
@@ -25,23 +37,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedToken = getToken();
     const savedUser = getUser();
-    if (savedToken && savedUser) {
+    const savedTipo = getAuthTipo();
+
+    if (savedToken && savedUser && savedTipo) {
       setTokenState(savedToken);
-      setUserState(savedUser);
+      setUserState({
+        email: savedUser.email,
+        name: savedUser.name,
+        tipo: savedUser.tipo ?? savedTipo,
+      });
+      console.log("[Auth] Sessão restaurada com token:", `${savedToken.slice(0, 24)}...`);
     }
+
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, senha: string, tipo: "cliente" | "pessoa") => {
+  const login = useCallback(async (email: string, senha: string, tipo: LoginTipo) => {
     const fn = tipo === "cliente" ? loginCliente : loginPessoa;
     const data = await fn({ email, senha });
 
-    console.log("[Auth] Token recebido:", data.token?.slice(0, 20) + "...");
+    const tokenRecebido = typeof data.token === "string" ? data.token : "";
+    if (!tokenRecebido) {
+      throw new Error("Login retornou sem token JWT válido.");
+    }
 
-    setToken(data.token);
-    setUser({ email: data.email || email, name: data.name || "" });
-    setTokenState(data.token);
-    setUserState({ email: data.email || email, name: data.name || "" });
+    console.log("[Auth] Tipo de login:", tipo);
+    console.log("[Auth] Token recebido:", `${tokenRecebido.slice(0, 24)}...`);
+
+    const userData: User = {
+      email: (data.email as string) || email,
+      name: (data.name as string) || "",
+      tipo,
+    };
+
+    setToken(tokenRecebido);
+    setAuthTipo(tipo);
+    setUser(userData);
+
+    setTokenState(tokenRecebido);
+    setUserState(userData);
   }, []);
 
   const logout = useCallback(() => {

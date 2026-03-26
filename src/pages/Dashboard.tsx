@@ -1,18 +1,25 @@
 import { useEffect, useState } from "react";
-import { apiFetch, apiFetchFirst } from "@/lib/api";
+import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Cpu, DollarSign, TrendingUp, Package } from "lucide-react";
+import { Cpu, DollarSign, TrendingUp, Users } from "lucide-react";
 
-interface Maquina {
+interface ClienteResponse {
   id: string;
-  [key: string]: unknown;
+  nome: string;
+  email: string;
+  ativo: boolean;
+  Maquina: Array<{
+    id: string;
+    nome: string;
+    descricao: string;
+    ultimoPagamentoRecebido: string | null;
+  }>;
 }
 
 interface DashboardData {
   totalMaquinas: number;
-  totalTransacoes: number | string;
-  faturamento: number;
-  totalPremios: number | string;
+  totalClientes: number | string;
+  totalAtivas: number | string;
   origem: string;
 }
 
@@ -24,42 +31,28 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const fallbackData = await apiFetchFirst<unknown>(["/maquinas"]);
-
-        if (Array.isArray(fallbackData)) {
-          const maquinas = fallbackData as Maquina[];
-          let faturamento = 0;
-
-          if (maquinas[0]?.id) {
-            try {
-              const pagamentos = await apiFetch<{ total?: number }>(`/pagamentos/${maquinas[0].id}`);
-              faturamento = Number(pagamentos.total || 0);
-            } catch (paymentError) {
-              console.warn("[Dashboard] Falha ao buscar /pagamentos/:id", paymentError);
-            }
-          }
-
+        if (isAdmin()) {
+          console.log("[Dashboard] Admin: fetching /clientes");
+          const clientes = await apiFetch<ClienteResponse[]>("/clientes");
+          const allMaquinas = clientes.flatMap((c) => c.Maquina || []);
           setData({
-            totalMaquinas: maquinas.length,
-            totalTransacoes: "—",
-            faturamento,
-            totalPremios: "—",
-            origem: "/maquinas + /pagamentos/:id",
+            totalClientes: clientes.length,
+            totalMaquinas: allMaquinas.length,
+            totalAtivas: allMaquinas.filter((m) => m.ultimoPagamentoRecebido).length,
+            origem: "/clientes (admin)",
           });
-          return;
+        } else {
+          console.log("[Dashboard] Cliente: fetching /maquinas");
+          const maquinas = await apiFetch<Array<{ id: string }>>("/maquinas");
+          setData({
+            totalClientes: "—",
+            totalMaquinas: maquinas.length,
+            totalAtivas: "—",
+            origem: "/maquinas (cliente)",
+          });
         }
-
-        const dashboard = fallbackData as Record<string, unknown>;
-        setData({
-          totalMaquinas: Number(dashboard.totalMaquinas || 0),
-          totalTransacoes: (dashboard.totalTransacoes as number) ?? "—",
-          faturamento: Number(dashboard.faturamento || 0),
-          totalPremios: (dashboard.totalPremios as number) ?? "—",
-          origem: "/dashboard",
-        });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Erro ao carregar dashboard";
-        setError(message);
+        setError(err instanceof Error ? err.message : "Erro ao carregar dashboard");
       } finally {
         setLoading(false);
       }
@@ -74,16 +67,15 @@ export default function Dashboard() {
 
   const stats = [
     { label: "Máquinas", value: data.totalMaquinas, icon: Cpu, color: "bg-primary/10 text-primary" },
-    { label: "Transações", value: data.totalTransacoes, icon: TrendingUp, color: "bg-accent/10 text-accent" },
-    { label: "Faturamento", value: `R$ ${Number(data.faturamento).toFixed(2)}`, icon: DollarSign, color: "bg-success/10 text-success" },
-    { label: "Prêmios", value: data.totalPremios, icon: Package, color: "bg-warning/10 text-warning" },
+    { label: "Ativas", value: data.totalAtivas, icon: TrendingUp, color: "bg-accent/10 text-accent" },
+    { label: "Clientes", value: data.totalClientes, icon: Users, color: "bg-success/10 text-success" },
   ];
 
   return (
     <div className="animate-fade-in">
       <h2 className="mb-4 font-display text-xl font-bold text-foreground">Dashboard</h2>
       <div className="mb-4 rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
-        Origem dos dados: {data.origem}
+        Origem: {data.origem}
       </div>
       <div className="grid grid-cols-2 gap-3">
         {stats.map((s) => (

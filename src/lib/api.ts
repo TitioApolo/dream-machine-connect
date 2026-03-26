@@ -99,7 +99,6 @@ export async function loginPessoa(payload: LoginPayload) {
 function buildAuthHeaders(token: string, headers?: HeadersInit): HeadersInit {
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
     "x-access-token": token,
     ...headers,
   };

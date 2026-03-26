@@ -41,12 +41,14 @@ export default function Transacoes() {
         setLoading(false);
       }
     }
-
     void load();
   }, []);
 
   if (loading) return <LoadingSpinner text="Carregando transações..." />;
   if (error) return <div className="rounded-2xl bg-destructive/10 p-6 text-center text-sm text-destructive">{error}</div>;
+
+  const formatDate = (d?: string | null) =>
+    d ? new Date(d).toLocaleString("pt-BR") : "—";
 
   return (
     <div className="animate-fade-in">
@@ -65,14 +67,15 @@ export default function Transacoes() {
                   <h3 className="text-sm font-semibold text-foreground truncate">{m.nome || `Máquina ${i + 1}`}</h3>
                   {m.descricao && <p className="text-xs text-muted-foreground">{m.descricao}</p>}
                 </div>
-                <div className="text-right">
-                  {m.ultimaRequisicao ? (
-                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {new Date(m.ultimaRequisicao).toLocaleDateString("pt-BR")}
+                <div className="text-right space-y-0.5">
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {formatDate(m.ultimaRequisicao)}
+                  </p>
+                  {m.ultimoPagamentoRecebido && (
+                    <p className="text-xs text-success">
+                      Pag: {formatDate(m.ultimoPagamentoRecebido)}
                     </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">—</p>
                   )}
                 </div>
               </div>

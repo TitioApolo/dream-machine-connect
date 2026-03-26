@@ -7,8 +7,10 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Maquinas from "./pages/Maquinas";
+import MaquinaDetalhe from "./pages/MaquinaDetalhe";
 import Pagamentos from "./pages/Pagamentos";
 import Transacoes from "./pages/Transacoes";
+import Premios from "./pages/Premios";
 import { MobileLayout } from "./components/MobileLayout";
 import NotFound from "./pages/NotFound";
 
@@ -52,8 +54,10 @@ const App = () => (
             >
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/maquinas" element={<Maquinas />} />
+              <Route path="/maquina/:id" element={<MaquinaDetalhe />} />
               <Route path="/pagamentos" element={<Pagamentos />} />
               <Route path="/transacoes" element={<Transacoes />} />
+              <Route path="/premios" element={<Premios />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

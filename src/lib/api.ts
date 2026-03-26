@@ -96,6 +96,14 @@ export async function loginPessoa(payload: LoginPayload) {
   return doLogin("/login-pessoa", payload);
 }
 
+export function getUserType(): string | null {
+  return localStorage.getItem("userType");
+}
+
+export function isAdmin(): boolean {
+  return getUserType() === "ADMIN";
+}
+
 function buildAuthHeaders(token: string, headers?: HeadersInit): HeadersInit {
   return {
     "Content-Type": "application/json",

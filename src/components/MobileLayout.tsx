@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Cpu, Receipt, Wallet, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ const navItems = [
   { path: "/maquinas", label: "Máquinas", icon: Cpu },
   { path: "/pagamentos", label: "Pagamentos", icon: Wallet },
   { path: "/transacoes", label: "Transações", icon: Receipt },
+  { path: "/premios", label: "Prêmios", icon: Gift },
 ];
 
 export function MobileLayout() {

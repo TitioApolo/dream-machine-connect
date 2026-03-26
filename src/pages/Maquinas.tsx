@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Cpu, MapPin, CheckCircle2, XCircle } from "lucide-react";
+import { Cpu, MapPin, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
 
 interface Maquina {
   id: string;
@@ -23,6 +24,7 @@ export default function Maquinas() {
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function load() {
@@ -43,7 +45,6 @@ export default function Maquinas() {
         setLoading(false);
       }
     }
-
     void load();
   }, []);
 
@@ -60,8 +61,12 @@ export default function Maquinas() {
           {maquinas.map((m, i) => {
             const isActive = !!m.ultimoPagamentoRecebido;
             return (
-              <div key={m.id || i} className="rounded-2xl bg-card p-4 shadow-card">
-                <div className="flex items-start gap-3">
+              <button
+                key={m.id || i}
+                onClick={() => navigate(`/maquina/${m.id}`)}
+                className="w-full rounded-2xl bg-card p-4 shadow-card text-left transition-colors active:bg-secondary/50"
+              >
+                <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
                     <Cpu className="h-5 w-5 text-primary" />
                   </div>
@@ -75,23 +80,26 @@ export default function Maquinas() {
                         {m.descricao || m.localizacao}
                       </p>
                     )}
-                    {m.maquininha_serial && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">Serial: {m.maquininha_serial}</p>
+                    {m.ultimoPagamentoRecebido && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Último pag: {new Date(m.ultimoPagamentoRecebido).toLocaleString("pt-BR")}
+                      </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     {isActive ? (
                       <span className="flex items-center gap-1 text-xs font-medium text-success">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Ativa
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-xs font-medium text-destructive">
-                        <XCircle className="h-3.5 w-3.5" /> Inativa
+                        <XCircle className="h-3.5 w-3.5" />
                       </span>
                     )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

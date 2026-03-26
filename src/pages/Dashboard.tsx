@@ -24,7 +24,7 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const fallbackData = await apiFetchFirst<unknown>(["/dashboard", "/maquinas"]);
+        const fallbackData = await apiFetchFirst<unknown>(["/maquinas"]);
 
         if (Array.isArray(fallbackData)) {
           const maquinas = fallbackData as Maquina[];

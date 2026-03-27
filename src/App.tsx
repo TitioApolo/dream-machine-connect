@@ -28,6 +28,37 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
 }
 
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />
+      <Route
+        element={
+          <PrivateRoute>
+            <MobileLayout />
+          </PrivateRoute>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/maquinas" element={<Maquinas />} />
+        <Route path="/maquina/:id" element={<MaquinaDetalhe />} />
+        <Route path="/pagamentos" element={<Pagamentos />} />
+        <Route path="/transacoes" element={<Transacoes />} />
+        <Route path="/premios" element={<Premios />} />
+      </Route>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -35,36 +66,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              }
-            />
-            <Route
-              element={
-                <PrivateRoute>
-                  <MobileLayout />
-                </PrivateRoute>
-              }
-            >
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/maquinas" element={<Maquinas />} />
-              <Route path="/maquina/:id" element={<MaquinaDetalhe />} />
-              <Route path="/pagamentos" element={<Pagamentos />} />
-              <Route path="/transacoes" element={<Transacoes />} />
-              <Route path="/premios" element={<Premios />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppRoutes />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
-
-export default App;

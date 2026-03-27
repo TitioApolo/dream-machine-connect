@@ -4,7 +4,8 @@ import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   ArrowLeft, Cpu, MapPin, CheckCircle2, XCircle, Clock, DollarSign,
-  CreditCard, Banknote, Gift, TrendingUp, Smartphone, CalendarIcon, RefreshCw
+  CreditCard, Banknote, Gift, TrendingUp, Smartphone, CalendarIcon, RefreshCw,
+  Undo2, Package
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -27,30 +28,32 @@ interface MaquinaData {
   [key: string]: unknown;
 }
 
-interface PagamentoResumo {
-  total?: number;
-  pix?: number;
-  especie?: number;
-  debito?: number;
-  creditoRemoto?: number;
-  premios?: number;
-  [key: string]: unknown;
-}
-
-interface Transacao {
+interface PagamentoItem {
   id?: string;
   data?: string;
-  dataHora?: string;
-  tipoPagamento?: string;
-  valor?: number;
+  valor?: string | number;
+  tipo?: string;
+  tipoTransacao?: string;
+  identificador?: string;
+  estornado?: boolean;
+  removido?: boolean;
+  operadora?: string;
   [key: string]: unknown;
 }
 
-interface Premio {
-  id?: string;
-  dataHora?: string;
-  quantidade?: number;
-  observacao?: string;
+interface PagamentoResumo {
+  total?: number;
+  pix?: string | number;
+  cash?: number;
+  especie?: number;
+  debito?: string | number;
+  credito?: string | number;
+  creditosRemotos?: string | number;
+  creditoRemoto?: string | number;
+  estornos?: number;
+  estoque?: number;
+  premios?: number;
+  pagamentos?: PagamentoItem[];
   [key: string]: unknown;
 }
 
@@ -58,9 +61,7 @@ export default function MaquinaDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [maquina, setMaquina] = useState<MaquinaData | null>(null);
-  const [pagamentos, setPagamentos] = useState<PagamentoResumo | null>(null);
-  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
-  const [premios, setPremios] = useState<Premio[]>([]);
+  const [resumo, setResumo] = useState<PagamentoResumo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
@@ -71,17 +72,13 @@ export default function MaquinaDetalhe() {
   const fetchDynamic = useCallback(async () => {
     if (!id) return;
     try {
-      const [pagData, txData, prData] = await Promise.allSettled([
-        apiFetch<PagamentoResumo>(`/pagamentos/${id}`),
-        apiFetch<Transacao[]>(`/transacoes?maquinaId=${id}`),
-        apiFetch<Premio[]>(`/premios?maquinaId=${id}`),
-      ]);
-      if (pagData.status === "fulfilled") setPagamentos(pagData.value);
-      if (txData.status === "fulfilled") setTransacoes(Array.isArray(txData.value) ? txData.value : []);
-      if (prData.status === "fulfilled") setPremios(Array.isArray(prData.value) ? prData.value : []);
+      const path = isAdmin() ? `/pagamentos-adm/${id}` : `/pagamentos/${id}`;
+      const data = await apiFetch<PagamentoResumo>(path);
+      console.log("[MaquinaDetalhe] PAGAMENTOS RESPONSE:", data);
+      setResumo(data);
       setLastUpdate(new Date());
     } catch (err) {
-      console.warn("[MaquinaDetalhe] polling error:", err);
+      console.warn("[MaquinaDetalhe] pagamentos error:", err);
     }
   }, [id]);
 
@@ -90,9 +87,8 @@ export default function MaquinaDetalhe() {
       if (!id) return;
       try {
         const path = isAdmin() ? `/maquina-adm/${id}` : `/maquina/${id}`;
-        console.log("[MaquinaDetalhe] Fetching:", path);
         const data = await apiFetch<MaquinaData>(path);
-        console.log("[MaquinaDetalhe] RESPONSE:", data);
+        console.log("[MaquinaDetalhe] MAQUINA RESPONSE:", data);
         setMaquina(data);
         await fetchDynamic();
       } catch (err) {
@@ -114,29 +110,40 @@ export default function MaquinaDetalhe() {
   if (!maquina) return null;
 
   const isActive = !!maquina.ultimoPagamentoRecebido;
-  const formatDate = (d?: string | null) => d ? new Date(d).toLocaleString("pt-BR") : "—";
-  const formatCurrency = (v?: number) => v != null ? `R$ ${v.toFixed(2)}` : "R$ 0,00";
+  const formatDateStr = (d?: string | null) => d ? new Date(d).toLocaleString("pt-BR") : "—";
+  const toNum = (v?: string | number | null): number => {
+    if (v == null) return 0;
+    return typeof v === "string" ? parseFloat(v) || 0 : v;
+  };
+  const formatCurrency = (v?: string | number | null) => {
+    const n = toNum(v);
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
 
-  // Filter transacoes by date range
-  const filteredTransacoes = transacoes.filter((t) => {
-    const dateStr = t.data || t.dataHora;
-    if (!dateStr) return true;
-    const d = new Date(dateStr);
+  const allPagamentos = resumo?.pagamentos || [];
+
+  // Filter by date
+  const filteredPagamentos = allPagamentos.filter((p) => {
+    if (!p.data) return true;
+    const d = new Date(p.data);
     if (dateFrom && d < dateFrom) return false;
     if (dateTo) {
-      const endOfDay = new Date(dateTo);
-      endOfDay.setHours(23, 59, 59, 999);
-      if (d > endOfDay) return false;
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      if (d > end) return false;
     }
     return true;
   });
 
-  // Chart data from filtered transacoes
-  const chartData = filteredTransacoes.reduce<Record<string, number>>((acc, t) => {
-    const dateStr = t.data || t.dataHora;
-    if (!dateStr) return acc;
-    const day = new Date(dateStr).toLocaleDateString("pt-BR");
-    acc[day] = (acc[day] || 0) + (t.valor || 0);
+  // Separate by type
+  const transacoes = filteredPagamentos.filter((p) => p.tipoTransacao === "pagamento" || p.tipoTransacao === "credito_remoto");
+  const premiosEntregues = filteredPagamentos.filter((p) => p.tipoTransacao === "premio" || p.tipo?.toLowerCase().includes("prêmio") || p.tipo?.toLowerCase().includes("premio"));
+
+  // Chart: group by day
+  const chartData = filteredPagamentos.reduce<Record<string, number>>((acc, p) => {
+    if (!p.data || p.estornado || p.removido) return acc;
+    const day = new Date(p.data).toLocaleDateString("pt-BR");
+    acc[day] = (acc[day] || 0) + toNum(p.valor);
     return acc;
   }, {});
   const chartEntries = Object.entries(chartData)
@@ -148,27 +155,35 @@ export default function MaquinaDetalhe() {
     });
 
   const cards = [
-    { label: "Total", value: pagamentos?.total, icon: TrendingUp, color: "bg-primary/10 text-primary" },
-    { label: "PIX", value: pagamentos?.pix, icon: Smartphone, color: "bg-accent/10 text-accent" },
-    { label: "Espécie", value: pagamentos?.especie, icon: Banknote, color: "bg-success/10 text-success" },
-    { label: "Débito", value: pagamentos?.debito, icon: CreditCard, color: "bg-warning/10 text-warning" },
-    { label: "Crédito Remoto", value: pagamentos?.creditoRemoto, icon: CreditCard, color: "bg-secondary text-secondary-foreground" },
-    { label: "Prêmios", value: pagamentos?.premios, icon: Gift, color: "bg-destructive/10 text-destructive" },
+    { label: "Total", value: resumo?.total, icon: TrendingUp, color: "bg-primary/10 text-primary" },
+    { label: "PIX", value: resumo?.pix, icon: Smartphone, color: "bg-accent/10 text-accent" },
+    { label: "Espécie", value: resumo?.cash ?? resumo?.especie, icon: Banknote, color: "bg-success/10 text-success" },
+    { label: "Débito", value: resumo?.debito, icon: CreditCard, color: "bg-warning/10 text-warning" },
+    { label: "Crédito Remoto", value: resumo?.creditosRemotos ?? resumo?.creditoRemoto, icon: CreditCard, color: "bg-secondary text-secondary-foreground" },
+    { label: "Estornos", value: resumo?.estornos, icon: Undo2, color: "bg-destructive/10 text-destructive" },
+    { label: "Estoque", value: resumo?.estoque, icon: Package, color: "bg-primary/10 text-primary" },
   ];
 
-  const clearFilters = () => {
-    setDateFrom(undefined);
-    setDateTo(undefined);
+  const getTypeIcon = (tipo?: string) => {
+    const t = (tipo || "").toLowerCase();
+    if (t.includes("pix") || t.includes("bank_transfer")) return <Smartphone className="h-4 w-4 text-accent" />;
+    if (t.includes("remoto") || t.includes("credito_remoto")) return <CreditCard className="h-4 w-4 text-primary" />;
+    if (t.includes("espécie") || t.includes("cash")) return <Banknote className="h-4 w-4 text-success" />;
+    return <DollarSign className="h-4 w-4 text-primary" />;
   };
+
+  const getTypeLabel = (p: PagamentoItem) => {
+    if (p.tipoTransacao === "credito_remoto") return "Crédito Remoto";
+    if (p.tipo === "bank_transfer") return "PIX";
+    return p.tipo || p.tipoTransacao || "—";
+  };
+
+  const clearFilters = () => { setDateFrom(undefined); setDateTo(undefined); };
 
   return (
     <div className="animate-fade-in space-y-4 pb-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm font-medium text-primary"
-        >
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm font-medium text-primary">
           <ArrowLeft className="h-4 w-4" /> Voltar
         </button>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -177,119 +192,72 @@ export default function MaquinaDetalhe() {
         </div>
       </div>
 
-      {/* Machine info card */}
+      {/* Machine header */}
       <div className="rounded-2xl bg-card p-4 shadow-card">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <Cpu className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="font-display text-lg font-bold text-foreground truncate">
-              {maquina.nome || "Máquina"}
-            </h2>
-            <div className="flex items-center gap-2 mt-0.5">
+            <h2 className="font-display text-lg font-bold text-foreground truncate">{maquina.nome || "Máquina"}</h2>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {isActive ? (
-                <span className="flex items-center gap-1 text-xs font-medium text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Ativa
-                </span>
+                <span className="flex items-center gap-1 text-xs font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Ativa</span>
               ) : (
-                <span className="flex items-center gap-1 text-xs font-medium text-destructive">
-                  <XCircle className="h-3.5 w-3.5" /> Inativa
-                </span>
+                <span className="flex items-center gap-1 text-xs font-medium text-destructive"><XCircle className="h-3.5 w-3.5" /> Inativa</span>
               )}
               {(maquina.descricao || maquina.localizacao) && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {maquina.descricao || maquina.localizacao}
-                </span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" />{maquina.descricao || maquina.localizacao}</span>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="resumo" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 rounded-xl bg-secondary h-10">
+        <TabsList className="grid w-full grid-cols-3 rounded-xl bg-secondary h-10">
           <TabsTrigger value="resumo" className="rounded-lg text-xs">Resumo</TabsTrigger>
-          <TabsTrigger value="pagamentos" className="rounded-lg text-xs">Pagamentos</TabsTrigger>
           <TabsTrigger value="transacoes" className="rounded-lg text-xs">Transações</TabsTrigger>
-          <TabsTrigger value="premios" className="rounded-lg text-xs">Prêmios</TabsTrigger>
+          <TabsTrigger value="info" className="rounded-lg text-xs">Detalhes</TabsTrigger>
         </TabsList>
 
-        {/* TAB: Resumo */}
+        {/* RESUMO */}
         <TabsContent value="resumo" className="mt-4 space-y-4">
-          {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3">
             {cards.map((c) => (
               <div key={c.label} className="rounded-2xl bg-card p-3 shadow-card">
                 <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${c.color}`}>
                   <c.icon className="h-4 w-4" />
                 </div>
-                <p className="text-lg font-bold text-foreground">{formatCurrency(c.value)}</p>
+                <p className="text-lg font-bold text-foreground">
+                  {c.label === "Estoque" ? (toNum(c.value)) : formatCurrency(c.value)}
+                </p>
                 <p className="text-xs text-muted-foreground">{c.label}</p>
               </div>
             ))}
           </div>
 
-          {/* Machine details */}
-          <div className="rounded-2xl bg-card p-4 shadow-card space-y-2">
-            <h3 className="text-sm font-bold text-foreground mb-2">Detalhes</h3>
-            {maquina.maquininha_serial && (
-              <InfoRow icon={Cpu} label="Serial" value={maquina.maquininha_serial} />
-            )}
-            {maquina.store_id && (
-              <InfoRow icon={Cpu} label="Store ID" value={maquina.store_id} />
-            )}
-            <InfoRow icon={DollarSign} label="Último pagamento" value={formatDate(maquina.ultimoPagamentoRecebido)} />
-            <InfoRow icon={Clock} label="Última requisição" value={formatDate(maquina.ultimaRequisicao)} />
-            {maquina.dataInclusao && (
-              <InfoRow icon={Clock} label="Data inclusão" value={formatDate(maquina.dataInclusao)} />
-            )}
-          </div>
-        </TabsContent>
-
-        {/* TAB: Pagamentos (chart) */}
-        <TabsContent value="pagamentos" className="mt-4 space-y-4">
-          {chartEntries.length > 0 ? (
+          {chartEntries.length > 0 && (
             <div className="rounded-2xl bg-card p-4 shadow-card">
               <h3 className="mb-3 text-sm font-bold text-foreground">Pagamentos por Dia</h3>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={chartEntries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="dia" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
-                    formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Valor"]}
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
+                    formatter={(value: number) => [formatCurrency(value), "Valor"]}
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                   />
                   <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          ) : (
-            <EmptyState text="Nenhum dado de pagamento encontrado" />
           )}
-
-          {/* Summary cards in pagamentos tab too */}
-          <div className="grid grid-cols-3 gap-2">
-            {cards.slice(0, 6).map((c) => (
-              <div key={c.label} className="rounded-xl bg-card p-2.5 shadow-card text-center">
-                <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
-                <p className="text-sm font-bold text-foreground">{formatCurrency(c.value)}</p>
-              </div>
-            ))}
-          </div>
         </TabsContent>
 
-        {/* TAB: Transações */}
+        {/* TRANSAÇÕES */}
         <TabsContent value="transacoes" className="mt-4 space-y-3">
-          {/* Date filter */}
           <div className="rounded-2xl bg-card p-3 shadow-card">
             <div className="flex items-center gap-2 mb-2">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
@@ -299,40 +267,40 @@ export default function MaquinaDetalhe() {
               <DatePicker label="De" date={dateFrom} onSelect={setDateFrom} />
               <DatePicker label="Até" date={dateTo} onSelect={setDateTo} />
               {(dateFrom || dateTo) && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-8 px-2">
-                  Limpar
-                </Button>
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-8 px-2">Limpar</Button>
               )}
             </div>
             {(dateFrom || dateTo) && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {filteredTransacoes.length} de {transacoes.length} transações
-              </p>
+              <p className="mt-2 text-xs text-muted-foreground">{filteredPagamentos.length} de {allPagamentos.length} registros</p>
             )}
           </div>
 
-          {/* Transaction list */}
-          {filteredTransacoes.length > 0 ? (
+          {filteredPagamentos.length > 0 ? (
             <div className="flex flex-col gap-2">
-              {filteredTransacoes.map((t, i) => (
-                <div key={t.id || i} className="flex items-center justify-between rounded-xl bg-card px-4 py-3 shadow-card">
+              {filteredPagamentos.map((p, i) => (
+                <div key={p.id || i} className={cn(
+                  "flex items-center justify-between rounded-xl bg-card px-4 py-3 shadow-card",
+                  p.estornado && "opacity-50"
+                )}>
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-lg",
-                      t.tipoPagamento?.toLowerCase().includes("pix") ? "bg-accent/10" : "bg-primary/10"
+                      p.estornado ? "bg-destructive/10" : "bg-primary/10"
                     )}>
-                      {t.tipoPagamento?.toLowerCase().includes("pix") ? (
-                        <Smartphone className="h-4 w-4 text-accent" />
-                      ) : (
-                        <DollarSign className="h-4 w-4 text-primary" />
-                      )}
+                      {p.estornado ? <Undo2 className="h-4 w-4 text-destructive" /> : getTypeIcon(p.tipoTransacao || p.tipo)}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{t.tipoPagamento || "—"}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(t.data || t.dataHora)}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {getTypeLabel(p)}
+                        {p.estornado && <span className="ml-1.5 text-xs text-destructive">(estornado)</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{formatDateStr(p.data)}</p>
+                      {p.operadora && <p className="text-xs text-muted-foreground">{p.operadora}</p>}
                     </div>
                   </div>
-                  <p className="text-sm font-bold text-foreground">{formatCurrency(t.valor)}</p>
+                  <p className={cn("text-sm font-bold", p.estornado ? "text-destructive" : "text-foreground")}>
+                    {formatCurrency(p.valor)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -341,34 +309,15 @@ export default function MaquinaDetalhe() {
           )}
         </TabsContent>
 
-        {/* TAB: Prêmios */}
-        <TabsContent value="premios" className="mt-4 space-y-3">
-          {premios.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {premios.map((p, i) => (
-                <div key={p.id || i} className="rounded-xl bg-card px-4 py-3 shadow-card">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10">
-                        <Gift className="h-4 w-4 text-warning" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          Quantidade: {p.quantidade ?? "—"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{formatDate(p.dataHora)}</p>
-                      </div>
-                    </div>
-                  </div>
-                  {p.observacao && (
-                    <p className="mt-2 text-xs text-muted-foreground pl-11">{p.observacao}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState text="Nenhum prêmio encontrado" />
-          )}
+        {/* DETALHES */}
+        <TabsContent value="info" className="mt-4">
+          <div className="rounded-2xl bg-card p-4 shadow-card space-y-2">
+            {maquina.maquininha_serial && <InfoRow icon={Cpu} label="Serial" value={maquina.maquininha_serial} />}
+            {maquina.store_id && <InfoRow icon={Cpu} label="Store ID" value={maquina.store_id} />}
+            <InfoRow icon={DollarSign} label="Último pagamento" value={formatDateStr(maquina.ultimoPagamentoRecebido)} />
+            <InfoRow icon={Clock} label="Última requisição" value={formatDateStr(maquina.ultimaRequisicao)} />
+            {maquina.dataInclusao && <InfoRow icon={Clock} label="Data inclusão" value={formatDateStr(maquina.dataInclusao)} />}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
@@ -379,25 +328,13 @@ function DatePicker({ label, date, onSelect }: { label: string; date?: Date; onS
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "h-8 flex-1 justify-start text-left text-xs font-normal",
-            !date && "text-muted-foreground"
-          )}
-        >
+        <Button variant="outline" className={cn("h-8 flex-1 justify-start text-left text-xs font-normal", !date && "text-muted-foreground")}>
           <CalendarIcon className="mr-1.5 h-3 w-3" />
           {date ? format(date, "dd/MM/yyyy") : label}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={onSelect}
-          initialFocus
-          className={cn("p-3 pointer-events-auto")}
-        />
+        <Calendar mode="single" selected={date} onSelect={onSelect} initialFocus className={cn("p-3 pointer-events-auto")} />
       </PopoverContent>
     </Popover>
   );

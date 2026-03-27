@@ -76,6 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.key) {
       localStorage.setItem("userType", String(data.key));
     }
+    if (data.id) {
+      localStorage.setItem("userId", String(data.id));
+    }
 
     setTokenState(tokenRecebido);
     setUserState(userData);

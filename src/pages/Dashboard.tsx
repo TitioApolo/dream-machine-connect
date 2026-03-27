@@ -1,69 +1,76 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Cpu, DollarSign, TrendingUp, Users } from "lucide-react";
+import { Cpu, TrendingUp, Users, DollarSign } from "lucide-react";
+
+interface Maquina {
+  id: string;
+  nome: string;
+  ultimoPagamentoRecebido: string | null;
+}
 
 interface ClienteResponse {
   id: string;
   nome: string;
   email: string;
   ativo: boolean;
-  Maquina: Array<{
-    id: string;
-    nome: string;
-    descricao: string;
-    ultimoPagamentoRecebido: string | null;
-  }>;
+  Maquina: Maquina[];
 }
 
 interface DashboardData {
   totalMaquinas: number;
   totalClientes: number | string;
   totalAtivas: number | string;
-  origem: string;
+  [key: string]: unknown;
 }
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        if (isAdmin()) {
-          console.log("[Dashboard] Admin: fetching /clientes");
-          const clientes = await apiFetch<ClienteResponse[]>("/clientes");
-          const allMaquinas = clientes.flatMap((c) => c.Maquina || []);
-          setData({
-            totalClientes: clientes.length,
-            totalMaquinas: allMaquinas.length,
-            totalAtivas: allMaquinas.filter((m) => m.ultimoPagamentoRecebido).length,
-            origem: "/clientes (admin)",
-          });
-        } else {
-          console.log("[Dashboard] Cliente: fetching /maquinas");
-          const maquinas = await apiFetch<Array<{ id: string }>>("/maquinas");
-          setData({
-            totalClientes: "—",
-            totalMaquinas: maquinas.length,
-            totalAtivas: "—",
-            origem: "/maquinas (cliente)",
-          });
+  const fetchData = useCallback(async () => {
+    try {
+      if (isAdmin()) {
+        // Try /dashboard first, fallback to /clientes
+        try {
+          const dashData = await apiFetch<DashboardData>("/dashboard");
+          console.log("[Dashboard] /dashboard RESPONSE:", dashData);
+          setData(dashData);
+          return;
+        } catch {
+          console.warn("[Dashboard] /dashboard failed, using /clientes fallback");
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao carregar dashboard");
-      } finally {
-        setLoading(false);
+        const clientes = await apiFetch<ClienteResponse[]>("/clientes");
+        const allMaquinas = clientes.flatMap((c) => c.Maquina || []);
+        setData({
+          totalClientes: clientes.length,
+          totalMaquinas: allMaquinas.length,
+          totalAtivas: allMaquinas.filter((m) => m.ultimoPagamentoRecebido).length,
+        });
+      } else {
+        const maquinas = await apiFetch<Maquina[]>("/maquinas");
+        setData({
+          totalClientes: "—",
+          totalMaquinas: maquinas.length,
+          totalAtivas: maquinas.filter((m) => m.ultimoPagamentoRecebido).length,
+        });
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar dashboard");
     }
-
-    void load();
   }, []);
 
+  useEffect(() => {
+    fetchData().finally(() => setLoading(false));
+    intervalRef.current = setInterval(fetchData, 5000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchData]);
+
   if (loading) return <LoadingSpinner text="Carregando dashboard..." />;
-  if (error) return <ErrorCard message={error} />;
-  if (!data) return <ErrorCard message="Sem dados no dashboard." />;
+  if (error) return <div className="rounded-2xl bg-destructive/10 p-6 text-center text-sm text-destructive">{error}</div>;
+  if (!data) return null;
 
   const stats = [
     { label: "Máquinas", value: data.totalMaquinas, icon: Cpu, color: "bg-primary/10 text-primary" },
@@ -74,9 +81,6 @@ export default function Dashboard() {
   return (
     <div className="animate-fade-in">
       <h2 className="mb-4 font-display text-xl font-bold text-foreground">Dashboard</h2>
-      <div className="mb-4 rounded-xl bg-secondary px-3 py-2 text-xs text-secondary-foreground">
-        Origem: {data.origem}
-      </div>
       <div className="grid grid-cols-2 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl bg-card p-4 shadow-card">
@@ -88,14 +92,6 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function ErrorCard({ message }: { message: string }) {
-  return (
-    <div className="rounded-2xl bg-destructive/10 p-6 text-center">
-      <p className="text-sm font-medium text-destructive">{message}</p>
     </div>
   );
 }

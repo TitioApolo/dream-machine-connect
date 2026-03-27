@@ -14,6 +14,8 @@ export function clearToken() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   localStorage.removeItem("auth_tipo");
+  localStorage.removeItem("userType");
+  localStorage.removeItem("userId");
 }
 
 export function getAuthTipo(): LoginTipo | null {
@@ -98,6 +100,10 @@ export async function loginPessoa(payload: LoginPayload) {
 
 export function getUserType(): string | null {
   return localStorage.getItem("userType");
+}
+
+export function getUserId(): string | null {
+  return localStorage.getItem("userId");
 }
 
 export function isAdmin(): boolean {

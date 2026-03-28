@@ -1,25 +1,12 @@
-import { useEffect, useState } from "react";
-import { apiFetch, isAdmin } from "@/lib/api";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { apiFetch, isAdmin, getUserId } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { DollarSign, Clock } from "lucide-react";
-
-interface Pagamento {
-  id?: string;
-  valorDoPix?: number;
-  valor?: number;
-  dataPagamento?: string;
-  dataInclusao?: string;
-  ultimoPagamentoRecebido?: string | null;
-  nome?: string;
-  descricao?: string;
-  [key: string]: unknown;
-}
+import { DollarSign, Smartphone, Banknote, CreditCard, TrendingUp, RefreshCw } from "lucide-react";
 
 interface Maquina {
   id: string;
   nome?: string;
   descricao?: string;
-  ultimoPagamentoRecebido?: string | null;
 }
 
 interface ClienteResponse {
@@ -28,118 +15,129 @@ interface ClienteResponse {
   Maquina: Maquina[];
 }
 
+interface MaquinaPagamento {
+  maquina: Maquina;
+  total: number;
+  pix: number;
+  cash: number;
+  debito: number;
+  creditosRemotos: number;
+}
+
+const toNum = (v?: string | number | null): number => {
+  if (v == null) return 0;
+  return typeof v === "string" ? parseFloat(v) || 0 : v;
+};
+
+const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
 export default function Pagamentos() {
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
-  const [maquinas, setMaquinas] = useState<Maquina[]>([]);
+  const [dados, setDados] = useState<MaquinaPagamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [useFallback, setUseFallback] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      let maquinas: Maquina[] = [];
+      if (isAdmin()) {
+        const clientes = await apiFetch<ClienteResponse[]>("/clientes");
+        maquinas = clientes.flatMap((c) => c.Maquina || []);
+      } else {
+        maquinas = await apiFetch<Maquina[]>("/maquinas");
+      }
+
+      const results: MaquinaPagamento[] = [];
+      for (const m of maquinas) {
+        try {
+          const path = isAdmin() ? `/pagamentos-adm/${m.id}` : `/pagamentos/${m.id}`;
+          const res = await apiFetch<Record<string, unknown>>(path);
+          console.log(`[Pagamentos] ${m.nome}:`, res);
+          results.push({
+            maquina: m,
+            total: toNum(res.total),
+            pix: toNum(res.pix),
+            cash: toNum(res.cash ?? res.especie),
+            debito: toNum(res.debito),
+            creditosRemotos: toNum(res.creditosRemotos ?? res.creditoRemoto),
+          });
+        } catch (err) {
+          console.warn(`[Pagamentos] Erro ${m.nome}:`, err);
+          results.push({ maquina: m, total: 0, pix: 0, cash: 0, debito: 0, creditosRemotos: 0 });
+        }
+      }
+      setDados(results);
+      setLastUpdate(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar pagamentos");
+    }
+  }, []);
 
   useEffect(() => {
-    async function load() {
-      try {
-        // Try fetching from /pagamentos first
-        console.log("[Pagamentos] Fetching /pagamentos");
-        const data = await apiFetch<Pagamento[]>("/pagamentos");
-        console.log("[Pagamentos] RESPONSE:", data);
-        if (Array.isArray(data) && data.length > 0) {
-          setPagamentos(data);
-          return;
-        }
-      } catch (err) {
-        console.warn("[Pagamentos] /pagamentos failed, using fallback:", err);
-      }
-
-      // Fallback: use machine data
-      try {
-        setUseFallback(true);
-        if (isAdmin()) {
-          const clientes = await apiFetch<ClienteResponse[]>("/clientes");
-          setMaquinas(clientes.flatMap((c) => c.Maquina || []));
-        } else {
-          const list = await apiFetch<Maquina[]>("/maquinas");
-          setMaquinas(Array.isArray(list) ? list : []);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao carregar pagamentos");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load().finally(() => setLoading(false));
-  }, []);
+    fetchData().finally(() => setLoading(false));
+    intervalRef.current = setInterval(fetchData, 10000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchData]);
 
   if (loading) return <LoadingSpinner text="Carregando pagamentos..." />;
   if (error) return <div className="rounded-2xl bg-destructive/10 p-6 text-center text-sm text-destructive">{error}</div>;
 
-  const formatDate = (d?: string | null) =>
-    d ? new Date(d).toLocaleString("pt-BR") : "—";
+  const grandTotal = dados.reduce((s, d) => s + d.total, 0);
 
-  const formatCurrency = (v?: number | null) =>
-    v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
-
-  // If we got real pagamentos data
-  if (!useFallback && pagamentos.length > 0) {
-    return (
-      <div className="animate-fade-in">
-        <h2 className="mb-4 font-display text-xl font-bold text-foreground">Pagamentos</h2>
-        <div className="flex flex-col gap-3">
-          {pagamentos.map((p, i) => (
-            <div key={p.id || i} className="rounded-2xl bg-card p-4 shadow-card">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/10">
-                  <DollarSign className="h-5 w-5 text-success" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground truncate">
-                    {formatCurrency(p.valorDoPix ?? p.valor)}
-                  </h3>
-                  <p className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {formatDate(p.dataPagamento ?? p.dataInclusao)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
+  return (
+    <div className="animate-fade-in space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-xl font-bold text-foreground">Pagamentos</h2>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
+          {lastUpdate.toLocaleTimeString("pt-BR")}
         </div>
       </div>
-    );
-  }
 
-  // Fallback: show machines with last payment info
-  return (
-    <div className="animate-fade-in">
-      <h2 className="mb-4 font-display text-xl font-bold text-foreground">Pagamentos</h2>
-      {maquinas.length === 0 ? (
+      {/* Grand total card */}
+      <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
+            <TrendingUp className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-foreground">{fmt(grandTotal)}</p>
+            <p className="text-xs text-muted-foreground">Total geral ({dados.length} máquinas)</p>
+          </div>
+        </div>
+      </div>
+
+      {dados.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Nenhum pagamento encontrado</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {maquinas.map((m, i) => (
-            <div key={m.id || i} className="rounded-2xl bg-card p-4 shadow-card">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success/10">
-                  <DollarSign className="h-5 w-5 text-success" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground truncate">{m.nome || `Máquina ${i + 1}`}</h3>
-                  {m.descricao && <p className="text-xs text-muted-foreground">{m.descricao}</p>}
-                </div>
-                <div className="text-right">
-                  {m.ultimoPagamentoRecebido ? (
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(m.ultimoPagamentoRecebido)}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Sem pagamentos</p>
-                  )}
-                </div>
+          {dados.map((d) => (
+            <div key={d.maquina.id} className="rounded-2xl bg-card p-4 shadow-card border border-border">
+              <h3 className="text-sm font-semibold text-foreground mb-1">{d.maquina.nome || "Máquina"}</h3>
+              {d.maquina.descricao && <p className="text-xs text-muted-foreground mb-3">{d.maquina.descricao}</p>}
+              <div className="grid grid-cols-2 gap-2">
+                <StatRow icon={TrendingUp} label="Total" value={fmt(d.total)} color="text-primary" />
+                <StatRow icon={Smartphone} label="PIX" value={fmt(d.pix)} color="text-accent" />
+                <StatRow icon={Banknote} label="Espécie" value={fmt(d.cash)} color="text-success" />
+                <StatRow icon={CreditCard} label="Débito" value={fmt(d.debito)} color="text-warning" />
               </div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatRow({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string; color: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-2.5 py-2">
+      <Icon className={`h-3.5 w-3.5 ${color}`} />
+      <div>
+        <p className="text-[10px] text-muted-foreground">{label}</p>
+        <p className="text-xs font-semibold text-foreground">{value}</p>
+      </div>
     </div>
   );
 }

@@ -56,11 +56,11 @@ export default function Pagamentos() {
           console.log(`[Pagamentos] ${m.nome}:`, res);
           results.push({
             maquina: m,
-            total: toNum(res.total),
-            pix: toNum(res.pix),
-            cash: toNum(res.cash ?? res.especie),
-            debito: toNum(res.debito),
-            creditosRemotos: toNum(res.creditosRemotos ?? res.creditoRemoto),
+            total: toNum(res.total as string | number),
+            pix: toNum(res.pix as string | number),
+            cash: toNum((res.cash ?? res.especie) as string | number),
+            debito: toNum(res.debito as string | number),
+            creditosRemotos: toNum((res.creditosRemotos ?? res.creditoRemoto) as string | number),
           });
         } catch (err) {
           console.warn(`[Pagamentos] Erro ${m.nome}:`, err);

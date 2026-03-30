@@ -114,12 +114,19 @@ export function isAdmin(): boolean {
 }
 
 function buildAuthHeaders(token: string, headers?: HeadersInit): HeadersInit {
-  const finalHeaders = {
+  // Tenta primeiro com x-access-token (pode ser o que o backend espera)
+  // Se não funcionar, o backend retornará 401 e tentaremos outro formato
+  const finalHeaders: HeadersInit = {
     "Content-Type": "application/json",
     "x-access-token": token,
     ...headers,
   };
-  console.log("[HEADERS] Construídos:", { "x-access-token": token ? `${token.slice(0, 24)}...` : "VAZIO" });
+  
+  // Log completo do header enviado
+  console.log("[HEADERS] x-access-token:", token ? `${token.slice(0, 24)}...` : "VAZIO");
+  console.log("[HEADERS] Token length:", token ? token.length : 0);
+  console.log("[HEADERS] Token valid format:", token && token.startsWith("eyJ") ? "JWT format" : "UNKNOWN");
+  
   return finalHeaders;
 }
 
@@ -150,6 +157,17 @@ export async function apiFetch<T = unknown>(
   const rawData = await parseResponse(res);
   console.log("[API] Status:", res.status);
   console.log("[API] Response:", rawData);
+  
+  // Log detalhado da resposta para debug
+  if (!res.ok) {
+    console.error("[API] Erro completo:", {
+      status: res.status,
+      statusText: res.statusText,
+      responseBody: rawData,
+      url: url,
+      headers: Object.fromEntries(res.headers.entries()),
+    });
+  }
 
   if (!res.ok) {
     const errorMessage =
@@ -161,6 +179,8 @@ export async function apiFetch<T = unknown>(
     if (res.status === 401) {
       console.error("[401 ERROR] Token inválido!", {
         token: token ? `${token.slice(0, 24)}...` : "NULO",
+        tokenLength: token ? token.length : 0,
+        tokenFormat: token && token.startsWith("eyJ") ? "JWT" : "UNKNOWN",
         userType: getUserType(),
         userId: getUserId(),
         url,

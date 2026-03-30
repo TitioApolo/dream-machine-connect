@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   getToken,
   getUser,
@@ -10,7 +9,6 @@ import {
   loginPessoa,
   setAuthTipo,
   getAuthTipo,
-  setUnauthorizedCallback,
   type LoginTipo,
 } from "@/lib/api";
 
@@ -35,7 +33,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const savedToken = getToken();
@@ -54,16 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoading(false);
   }, []);
-
-  // Registrar callback para logout automático quando token expirar
-  useEffect(() => {
-    setUnauthorizedCallback(() => {
-      console.log("[Auth] Token expirou ou inválido - fazendo logout automático");
-      setUserState(null);
-      setTokenState(null);
-      navigate("/login");
-    });
-  }, [navigate]);
 
   const login = useCallback(async (email: string, senha: string, tipo: LoginTipo) => {
     const fn = tipo === "cliente" ? loginCliente : loginPessoa;

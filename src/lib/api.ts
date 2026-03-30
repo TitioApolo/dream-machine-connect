@@ -113,22 +113,7 @@ export function isAdmin(): boolean {
   return getUserType() === "ADMIN";
 }
 
-function buildAuthHeaders(token: string, headers?: HeadersInit): HeadersInit {
-  // Tenta primeiro com x-access-token (pode ser o que o backend espera)
-  // Se não funcionar, o backend retornará 401 e tentaremos outro formato
-  const finalHeaders: HeadersInit = {
-    "Content-Type": "application/json",
-    "x-access-token": token,
-    ...headers,
-  };
-  
-  // Log completo do header enviado
-  console.log("[HEADERS] x-access-token:", token ? `${token.slice(0, 24)}...` : "VAZIO");
-  console.log("[HEADERS] Token length:", token ? token.length : 0);
-  console.log("[HEADERS] Token valid format:", token && token.startsWith("eyJ") ? "JWT format" : "UNKNOWN");
-  
-  return finalHeaders;
-}
+
 
 export async function apiFetch<T = unknown>(
   path: string,
@@ -146,9 +131,12 @@ export async function apiFetch<T = unknown>(
     throw new Error("Token não encontrado. Faça login novamente.");
   }
 
-  // Tentar com x-access-token (primeira tentativa)
-  let headers = buildAuthHeaders(token, options.headers);
-  
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    "x-access-token": token,
+    ...options.headers,
+  };
+
   let res = await fetch(url, {
     ...options,
     headers,
@@ -157,49 +145,6 @@ export async function apiFetch<T = unknown>(
   let rawData = await parseResponse(res);
   console.log("[API] Status:", res.status);
   console.log("[API] Response:", rawData);
-  
-  // Se 401 com x-access-token, tentar com Authorization Bearer
-  if (res.status === 401) {
-    console.warn("[API] 401 com x-access-token, tentando Authorization: Bearer...");
-    
-    headers = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-      ...options.headers,
-    };
-    
-    res = await fetch(url, {
-      ...options,
-      headers,
-    });
-    
-    rawData = await parseResponse(res);
-    console.log("[API] Retry Status:", res.status);
-    console.log("[API] Retry Response:", rawData);
-  }
-  
-  // Se ainda 401, tentar sem header de auth (talvez o backend use query param)
-  if (res.status === 401 && url.includes("?") === false) {
-    console.warn("[API] 401 com Authorization, tentando token em query param...");
-    
-    headers = {
-      "Content-Type": "application/json",
-      ...options.headers,
-    };
-    
-    const urlWithToken = url.includes("?") 
-      ? `${url}&token=${token}`
-      : `${url}?token=${token}`;
-    
-    res = await fetch(urlWithToken, {
-      ...options,
-      headers,
-    });
-    
-    rawData = await parseResponse(res);
-    console.log("[API] Query Param Status:", res.status);
-    console.log("[API] Query Param Response:", rawData);
-  }
   
   // Log detalhado da resposta para debug
   if (!res.ok) {

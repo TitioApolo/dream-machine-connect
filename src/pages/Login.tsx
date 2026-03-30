@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Crown } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { LogoLeao } from "@/components/LogoLeao";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -44,10 +45,10 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-sm animate-fade-in">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-2 border-primary/40 bg-card shadow-gold-lg animate-glow">
-            <Crown className="h-12 w-12 text-primary" />
+          <div className="flex h-32 w-32 items-center justify-center rounded-3xl border-2 border-primary/40 bg-card/80 shadow-gold-lg animate-glow backdrop-blur-sm">
+            <LogoLeao size={100} />
           </div>
-          <h1 className="font-display text-2xl font-bold tracking-wider text-primary">
+          <h1 className="font-display text-3xl font-bold tracking-wider text-primary">
             PIX MACHINE
           </h1>
           <p className="text-sm text-muted-foreground">Faça login para continuar</p>

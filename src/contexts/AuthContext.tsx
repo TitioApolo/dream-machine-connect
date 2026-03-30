@@ -47,6 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tipo: savedUser.tipo ?? savedTipo,
       });
       console.log("[Auth] Sessão restaurada com token:", `${savedToken.slice(0, 24)}...`);
+      console.log("[Auth] User type localStorage:", localStorage.getItem("userType"));
+      console.log("[Auth] User ID localStorage:", localStorage.getItem("userId"));
     }
 
     setIsLoading(false);
@@ -63,6 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log("[Auth] Tipo de login:", tipo);
     console.log("[Auth] Token recebido:", `${tokenRecebido.slice(0, 24)}...`);
+    console.log("[Auth] Response data:", data);
+
+    // Determinar userType: pode ser "key" ou inferir do tipo
+    const userType = String(data.key || (tipo === "pessoa" ? "ADMIN" : "CLIENT"));
+    const userId = String(data.id || "");
 
     const userData: User = {
       email: (data.email as string) || email,
@@ -70,15 +77,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       tipo,
     };
 
+    // Salvar tudo antes de atualizar state
     setToken(tokenRecebido);
     setAuthTipo(tipo);
     setUser(userData);
-    if (data.key) {
-      localStorage.setItem("userType", String(data.key));
+    localStorage.setItem("userType", userType);
+    if (userId) {
+      localStorage.setItem("userId", userId);
     }
-    if (data.id) {
-      localStorage.setItem("userId", String(data.id));
-    }
+
+    console.log("[Auth] Armazenado - userType:", userType, "userId:", userId);
 
     setTokenState(tokenRecebido);
     setUserState(userData);

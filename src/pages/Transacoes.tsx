@@ -10,15 +10,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
-interface Maquina {
-  id: string;
-  nome?: string;
-}
-
-interface ClienteResponse {
-  id: string;
-  Maquina: Maquina[];
-}
+interface Maquina { id: string; nome?: string; }
+interface ClienteResponse { id: string; Maquina: Maquina[]; }
 
 interface Transacao {
   id?: string;
@@ -71,14 +64,12 @@ export default function Transacoes() {
         }
       }
 
-      // Sort by date desc
       all.sort((a, b) => {
         const da = a.data ? new Date(a.data).getTime() : 0;
         const db = b.data ? new Date(b.data).getTime() : 0;
         return db - da;
       });
 
-      console.log("[Transacoes] Total:", all.length);
       setTransacoes(all);
       setLastUpdate(new Date());
     } catch (err) {
@@ -112,7 +103,7 @@ export default function Transacoes() {
   const getTypeIcon = (t: Transacao) => {
     const tipo = (t.tipoTransacao || t.tipo || "").toLowerCase();
     if (tipo.includes("pix") || t.tipo === "bank_transfer") return <Smartphone className="h-4 w-4 text-accent" />;
-    if (tipo.includes("remoto")) return <CreditCard className="h-4 w-4 text-primary" />;
+    if (tipo.includes("remoto")) return <CreditCard className="h-4 w-4 text-info" />;
     if (tipo.includes("cash") || tipo.includes("espécie")) return <Banknote className="h-4 w-4 text-success" />;
     if (t.estornado) return <Undo2 className="h-4 w-4 text-destructive" />;
     return <DollarSign className="h-4 w-4 text-primary" />;
@@ -127,24 +118,24 @@ export default function Transacoes() {
   return (
     <div className="animate-fade-in space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl font-bold text-foreground">Transações</h2>
+        <h2 className="font-display text-lg font-bold tracking-wider text-primary">Transações</h2>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
+          <RefreshCw className="h-3 w-3 animate-spin text-primary/60" style={{ animationDuration: "3s" }} />
           {lastUpdate.toLocaleTimeString("pt-BR")}
         </div>
       </div>
 
       {/* Date filter */}
-      <div className="rounded-2xl bg-card p-3 shadow-card border border-border">
+      <div className="rounded-2xl border border-primary/10 bg-card p-3 shadow-card">
         <div className="flex items-center gap-2 mb-2">
-          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+          <CalendarIcon className="h-4 w-4 text-primary/60" />
           <span className="text-xs font-medium text-foreground">Filtrar por data</span>
         </div>
         <div className="flex items-center gap-2">
           <DatePicker label="De" date={dateFrom} onSelect={setDateFrom} />
           <DatePicker label="Até" date={dateTo} onSelect={setDateTo} />
           {(dateFrom || dateTo) && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-8 px-2">Limpar</Button>
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-8 px-2 text-primary">Limpar</Button>
           )}
         </div>
         {(dateFrom || dateTo) && (
@@ -153,7 +144,7 @@ export default function Transacoes() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl bg-card p-8 text-center shadow-card border border-border">
+        <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-card">
           <p className="text-sm text-muted-foreground">Nenhuma transação encontrada</p>
         </div>
       ) : (
@@ -162,7 +153,7 @@ export default function Transacoes() {
             <div
               key={t.id || i}
               className={cn(
-                "flex items-center justify-between rounded-xl bg-card px-4 py-3 shadow-card border border-border",
+                "flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-card",
                 t.estornado && "opacity-50"
               )}
             >
@@ -188,7 +179,7 @@ export default function Transacoes() {
                   )}
                 </div>
               </div>
-              <p className={cn("text-sm font-bold", t.estornado ? "text-destructive" : "text-foreground")}>
+              <p className={cn("text-sm font-bold", t.estornado ? "text-destructive" : "text-primary")}>
                 {fmt(toNum(t.valor))}
               </p>
             </div>
@@ -208,12 +199,12 @@ function DatePicker({ label, date, onSelect }: { label: string; date?: Date; onS
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className={cn("h-8 flex-1 justify-start text-left text-xs font-normal", !date && "text-muted-foreground")}>
+        <Button variant="outline" className={cn("h-8 flex-1 justify-start text-left text-xs font-normal border-primary/20", !date && "text-muted-foreground")}>
           <CalendarIcon className="mr-1.5 h-3 w-3" />
           {date ? format(date, "dd/MM/yyyy") : label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 border-primary/20" align="start">
         <Calendar mode="single" selected={date} onSelect={onSelect} initialFocus className={cn("p-3 pointer-events-auto")} />
       </PopoverContent>
     </Popover>

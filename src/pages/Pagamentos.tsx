@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { apiFetch, isAdmin, getUserId } from "@/lib/api";
+import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { DollarSign, Smartphone, Banknote, CreditCard, TrendingUp, RefreshCw } from "lucide-react";
 
@@ -88,21 +88,21 @@ export default function Pagamentos() {
   return (
     <div className="animate-fade-in space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl font-bold text-foreground">Pagamentos</h2>
+        <h2 className="font-display text-lg font-bold tracking-wider text-primary">Pagamentos</h2>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
+          <RefreshCw className="h-3 w-3 animate-spin text-primary/60" style={{ animationDuration: "3s" }} />
           {lastUpdate.toLocaleTimeString("pt-BR")}
         </div>
       </div>
 
       {/* Grand total card */}
-      <div className="rounded-2xl bg-primary/10 border border-primary/20 p-4">
+      <div className="rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-gold">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/30 bg-primary/20">
             <TrendingUp className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-foreground">{fmt(grandTotal)}</p>
+            <p className="text-2xl font-bold text-primary">{fmt(grandTotal)}</p>
             <p className="text-xs text-muted-foreground">Total geral ({dados.length} máquinas)</p>
           </div>
         </div>
@@ -113,8 +113,8 @@ export default function Pagamentos() {
       ) : (
         <div className="flex flex-col gap-3">
           {dados.map((d) => (
-            <div key={d.maquina.id} className="rounded-2xl bg-card p-4 shadow-card border border-border">
-              <h3 className="text-sm font-semibold text-foreground mb-1">{d.maquina.nome || "Máquina"}</h3>
+            <div key={d.maquina.id} className="rounded-2xl border border-primary/10 bg-card p-4 shadow-card">
+              <h3 className="text-sm font-bold text-foreground font-display tracking-wide mb-1">{d.maquina.nome || "Máquina"}</h3>
               {d.maquina.descricao && <p className="text-xs text-muted-foreground mb-3">{d.maquina.descricao}</p>}
               <div className="grid grid-cols-2 gap-2">
                 <StatRow icon={TrendingUp} label="Total" value={fmt(d.total)} color="text-primary" />
@@ -132,7 +132,7 @@ export default function Pagamentos() {
 
 function StatRow({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string; color: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-2.5 py-2">
+    <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-2.5 py-2">
       <Icon className={`h-3.5 w-3.5 ${color}`} />
       <div>
         <p className="text-[10px] text-muted-foreground">{label}</p>

@@ -87,15 +87,6 @@ async function doLogin(path: "/login-cliente" | "/login-pessoa", payload: LoginP
     throw new Error("Token JWT inválido ou ausente na resposta do login.");
   }
 
-  // Log all available data to help with userType/userId extraction
-  console.log("[AUTH] Login data extracted:", {
-    token: data.token ? `${data.token.slice(0, 24)}...` : "MISSING",
-    id: data.id || "MISSING",
-    key: data.key || "MISSING",
-    loginType: path === "/login-cliente" ? "CLIENT" : "ADMIN",
-    allKeys: Object.keys(data)
-  });
-
   return data;
 }
 

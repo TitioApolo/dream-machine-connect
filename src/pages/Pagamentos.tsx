@@ -32,6 +32,7 @@ interface PagamentosData {
 interface MaquinaResumo {
   id: string;
   nome: string;
+  estabelecimentoNome?: string;
   total: number;
   pix: number;
   especie: number;
@@ -59,10 +60,12 @@ export default function Pagamentos() {
   const fetchData = useCallback(async () => {
     try {
       // Fetch all machines
-      let machines: MaquinaItem[] = [];
+      let machines: (MaquinaItem & { estabelecimentoNome?: string })[] = [];
       if (isAdmin()) {
         const clientes = await apiFetch<ClienteItem[]>("/clientes");
-        machines = Array.isArray(clientes) ? clientes.flatMap((c) => c.Maquina || []) : [];
+        machines = Array.isArray(clientes) ? clientes.flatMap((c) => 
+          (c.Maquina || []).map(m => ({ ...m, estabelecimentoNome: c.nome }))
+        ) : [];
       } else {
         const list = await apiFetch<MaquinaItem[]>("/maquinas");
         machines = Array.isArray(list) ? list : [];
@@ -78,6 +81,7 @@ export default function Pagamentos() {
             results.push({
               id: m.id,
               nome: m.nome || m.id,
+              estabelecimentoNome: (m as any).estabelecimentoNome,
               total: toNum(data.total),
               pix: toNum(data.pix),
               especie: toNum(data.especie ?? data.cash),
@@ -164,7 +168,12 @@ export default function Pagamentos() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                     <Cpu className="h-4 w-4 text-primary" />
                   </div>
-                  <p className="text-sm font-semibold text-foreground">{r.nome}</p>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-semibold text-foreground">{r.nome}</p>
+                    {r.estabelecimentoNome && (
+                      <p className="text-[10px] text-muted-foreground/60">{r.estabelecimentoNome}</p>
+                    )}
+                  </div>
                 </div>
                 <p className="font-display text-base font-bold text-primary">{fmt(r.total)}</p>
               </div>

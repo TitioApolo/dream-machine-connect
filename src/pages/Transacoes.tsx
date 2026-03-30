@@ -70,10 +70,12 @@ export default function Transacoes() {
   const fetchData = useCallback(async () => {
     try {
       // Step 1: fetch all machines
-      let machines: MaquinaItem[] = [];
+      let machines: (MaquinaItem & { estabelecimentoNome?: string })[] = [];
       if (isAdmin()) {
         const clientes = await apiFetch<ClienteItem[]>("/clientes");
-        machines = Array.isArray(clientes) ? clientes.flatMap((c) => c.Maquina || []) : [];
+        machines = Array.isArray(clientes) ? clientes.flatMap((c) => 
+          (c.Maquina || []).map(m => ({ ...m, estabelecimentoNome: c.nome }))
+        ) : [];
       } else {
         const list = await apiFetch<MaquinaItem[]>("/maquinas");
         machines = Array.isArray(list) ? list : [];
@@ -89,7 +91,11 @@ export default function Transacoes() {
             // Admin returns { pagamentos: [...] }, client returns { dadosUnificados: [...] }
             const list = (data.pagamentos ?? data.dadosUnificados ?? []) as Transacao[];
             list.forEach((t) => {
-              allTransacoes.push({ ...t, maquinaNome: m.nome || m.id });
+              allTransacoes.push({ 
+                ...t, 
+                maquinaNome: m.nome || m.id,
+                estabelecimentoNome: (m as any).estabelecimentoNome 
+              });
             });
           } catch (err) {
             console.warn(`[Transacoes] Erro máquina ${m.id}:`, err);
@@ -229,8 +235,10 @@ export default function Transacoes() {
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground">{formatDate(t)}</p>
-                    {t.maquinaNome && (
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t.maquinaNome}</p>
+                    {(t.maquinaNome || (t as any).estabelecimentoNome) && (
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                        {(t as any).estabelecimentoNome && `${(t as any).estabelecimentoNome} - `}{t.maquinaNome}
+                      </p>
                     )}
                   </div>
                 </div>

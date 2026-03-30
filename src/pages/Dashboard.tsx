@@ -41,12 +41,15 @@ export default function Dashboard() {
       const userType = getUserType();
       
       if (!userId) {
-        throw new Error("Usuário não identificado");
+        console.warn("[Dashboard] Aguardando identificação do usuário...");
+        return;
       }
 
       console.log("[Dashboard] Carregando estatísticas para:", { userId, userType });
 
-      const statsData = await apiFetch<EstatisticasData>(`/estatisticas-gerais/${userId}`);
+      // Se for ADMIN, talvez precise de uma rota diferente ou o ID correto
+      const path = userType === "ADMIN" ? "/estatisticas-gerais-adm" : `/estatisticas-gerais/${userId}`;
+      const statsData = await apiFetch<EstatisticasData>(path);
       console.log("[Dashboard] Estatísticas:", statsData);
       
       setData(statsData || {});

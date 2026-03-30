@@ -1,7 +1,8 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut, Crown } from "lucide-react";
+import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
+import { LogoLeao } from "@/components/LogoLeao";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -27,11 +28,11 @@ export function MobileLayout() {
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-primary/20 bg-card/95 px-4 py-3 shadow-gold backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
-            <Crown className="h-4 w-4 text-primary" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 p-1">
+            <LogoLeao size={32} />
           </div>
           <div>
-            <h1 className="font-display text-sm font-bold tracking-wider text-primary leading-none">PIX MACHINE</h1>
+            <h1 className="font-display text-base font-bold tracking-wider text-primary leading-none">PIX MACHINE</h1>
             {user && (
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 {user.name || user.email} · {user.tipo === "pessoa" ? "Admin" : "Cliente"}

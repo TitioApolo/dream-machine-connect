@@ -1,17 +1,37 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { apiFetch, isAdmin, getUserId } from "@/lib/api";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { DollarSign, TrendingUp, RefreshCw } from "lucide-react";
+import { Wallet, TrendingUp, Banknote, CreditCard, RefreshCw, Cpu } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface Maquina {
+interface MaquinaItem {
   id: string;
   nome?: string;
-  descricao?: string;
 }
 
-interface MaquinaPagamento {
-  maquina: Maquina;
+interface ClienteItem {
+  id: string;
+  nome: string;
+  Maquina: MaquinaItem[];
+}
+
+interface PagamentosData {
+  // Client fields
+  total?: number | string;
+  pix?: number | string;
+  especie?: number | string;
+  debito?: number | string;
+  creditoRemoto?: number | string;
+  // Admin fields
+  cash?: number | string;
+  creditosRemotos?: number | string;
+  credito?: number | string;
+  [key: string]: unknown;
+}
+
+interface MaquinaResumo {
+  id: string;
+  nome: string;
   total: number;
   pix: number;
   especie: number;
@@ -30,7 +50,7 @@ const fmt = (v: number) => {
 };
 
 export default function Pagamentos() {
-  const [dados, setDados] = useState<MaquinaPagamento[]>([]);
+  const [resumos, setResumos] = useState<MaquinaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -38,109 +58,157 @@ export default function Pagamentos() {
 
   const fetchData = useCallback(async () => {
     try {
-      const userId = getUserId();
-      
-      // Buscar máquinas do usuário
-      let maquinas: Maquina[] = [];
+      // Fetch all machines
+      let machines: MaquinaItem[] = [];
       if (isAdmin()) {
-        const clientes = await apiFetch<{id: string; Maquina: Maquina[]}[]>("/clientes");
-        maquinas = clientes.flatMap((c) => c.Maquina || []);
+        const clientes = await apiFetch<ClienteItem[]>("/clientes");
+        machines = Array.isArray(clientes) ? clientes.flatMap((c) => c.Maquina || []) : [];
       } else {
-        maquinas = await apiFetch<Maquina[]>("/maquinas");
+        const list = await apiFetch<MaquinaItem[]>("/maquinas");
+        machines = Array.isArray(list) ? list : [];
       }
 
-      const results: MaquinaPagamento[] = [];
-      for (const m of maquinas) {
-        try {
-          const path = `/pagamentos/${m.id}`;
-          const res = await apiFetch<Record<string, unknown>>(path);
-          console.log(`[Pagamentos] ${m.nome}:`, res);
-          results.push({
-            maquina: m,
-            total: toNum(res.total),
-            pix: toNum(res.pix),
-            especie: toNum(res.especie ?? res.cash),
-            debito: toNum(res.debito),
-            creditoRemoto: toNum(res.creditoRemoto ?? res.creditosRemotos),
-          });
-        } catch (err) {
-          console.warn(`[Pagamentos] Erro ${m.nome}:`, err);
-          results.push({ maquina: m, total: 0, pix: 0, especie: 0, debito: 0, creditoRemoto: 0 });
-        }
-      }
-      setDados(results);
+      // Fetch pagamentos per machine
+      const results: MaquinaResumo[] = [];
+      await Promise.allSettled(
+        machines.map(async (m) => {
+          try {
+            const path = isAdmin() ? `/pagamentos-adm/${m.id}` : `/pagamentos/${m.id}`;
+            const data = await apiFetch<PagamentosData>(path);
+            results.push({
+              id: m.id,
+              nome: m.nome || m.id,
+              total: toNum(data.total),
+              pix: toNum(data.pix),
+              especie: toNum(data.especie ?? data.cash),
+              debito: toNum(data.debito),
+              creditoRemoto: toNum(data.creditoRemoto ?? data.creditosRemotos),
+            });
+          } catch (err) {
+            console.warn(`[Pagamentos] Erro máquina ${m.id}:`, err);
+          }
+        })
+      );
+
+      results.sort((a, b) => b.total - a.total);
+      setResumos(results);
       setLastUpdate(new Date());
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar pagamentos");
+      console.error("[Pagamentos] Error:", err);
     }
   }, []);
 
   useEffect(() => {
     fetchData().finally(() => setLoading(false));
-    // Atualizar a cada 5 segundos
-    intervalRef.current = setInterval(fetchData, 5000);
+    intervalRef.current = setInterval(fetchData, 30_000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchData]);
 
   if (loading) return <LoadingSpinner text="Carregando pagamentos..." />;
-  if (error) return <div className="rounded-2xl bg-destructive/10 p-6 text-center text-sm text-destructive">{error}</div>;
 
-  const grandTotal = dados.reduce((s, d) => s + d.total, 0);
+  const grandTotal = resumos.reduce((acc, r) => acc + r.total, 0);
+  const grandPix = resumos.reduce((acc, r) => acc + r.pix, 0);
+  const grandEspecie = resumos.reduce((acc, r) => acc + r.especie, 0);
+  const grandDebito = resumos.reduce((acc, r) => acc + r.debito, 0);
+  const grandCredito = resumos.reduce((acc, r) => acc + r.creditoRemoto, 0);
 
   return (
     <div className="animate-fade-in space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold tracking-wider text-foreground">Resumo Financeiro</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wider text-foreground">Pagamentos</h1>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <RefreshCw className="h-3 w-3 animate-spin text-primary/60" style={{ animationDuration: "3s" }} />
           {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Grand total card */}
-      <Card className="border-primary/30 bg-primary/10 p-4 shadow-gold">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/20">
-            <TrendingUp className="h-6 w-6 text-primary" />
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-gold">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
+            <Wallet className="h-5 w-5 text-primary" />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Geral</p>
-            <p className="text-2xl font-display font-bold text-foreground">{fmt(grandTotal)}</p>
+            <p className="font-display text-2xl font-bold text-primary">{fmt(grandTotal)}</p>
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <StatRow icon={Banknote} label="PIX" value={fmt(grandPix)} color="text-blue-400" />
+          <StatRow icon={Banknote} label="Espécie" value={fmt(grandEspecie)} color="text-green-400" />
+          <StatRow icon={CreditCard} label="Débito" value={fmt(grandDebito)} color="text-yellow-400" />
+          <StatRow icon={CreditCard} label="Cred. Remoto" value={fmt(grandCredito)} color="text-purple-400" />
         </div>
       </Card>
 
-      {/* Máquinas list */}
-      <div className="space-y-3">
-        {dados.map((item) => (
-          <Card key={item.maquina.id} className="border-primary/10 bg-card/60 p-4 backdrop-blur-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-display text-sm font-bold tracking-wider text-foreground">{item.maquina.nome || "Máquina"}</h3>
-              <span className="text-sm font-bold text-primary">{fmt(item.total)}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-blue-400/10 p-2">
-                <p className="text-xs text-muted-foreground">PIX</p>
-                <p className="text-sm font-medium text-blue-400">{fmt(item.pix)}</p>
+      {/* Per machine breakdown */}
+      {resumos.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+            Por Máquina
+          </h2>
+          {resumos.map((r) => (
+            <Card key={r.id} className="border-border/40 bg-card/60 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                    <Cpu className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{r.nome}</p>
+                </div>
+                <p className="font-display text-base font-bold text-primary">{fmt(r.total)}</p>
               </div>
-              <div className="rounded-lg bg-green-400/10 p-2">
-                <p className="text-xs text-muted-foreground">Espécie</p>
-                <p className="text-sm font-medium text-green-400">{fmt(item.especie)}</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <StatRow icon={Banknote} label="PIX" value={fmt(r.pix)} color="text-blue-400" small />
+                <StatRow icon={Banknote} label="Espécie" value={fmt(r.especie)} color="text-green-400" small />
+                <StatRow icon={CreditCard} label="Débito" value={fmt(r.debito)} color="text-yellow-400" small />
+                <StatRow icon={CreditCard} label="C. Remoto" value={fmt(r.creditoRemoto)} color="text-purple-400" small />
               </div>
-              <div className="rounded-lg bg-yellow-400/10 p-2">
-                <p className="text-xs text-muted-foreground">Débito</p>
-                <p className="text-sm font-medium text-yellow-400">{fmt(item.debito)}</p>
-              </div>
-              <div className="rounded-lg bg-purple-400/10 p-2">
-                <p className="text-xs text-muted-foreground">Crédito Remoto</p>
-                <p className="text-sm font-medium text-purple-400">{fmt(item.creditoRemoto)}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {resumos.length === 0 && !error && (
+        <Card className="border-border bg-card/60 p-8 text-center">
+          <TrendingUp className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Nenhum pagamento encontrado</p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function StatRow({
+  icon: Icon,
+  label,
+  value,
+  color,
+  small,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  color: string;
+  small?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg bg-secondary/40 px-2 py-1.5">
+      <Icon className={`h-3 w-3 shrink-0 ${color}`} />
+      <span className={`text-muted-foreground ${small ? "text-[10px]" : "text-xs"}`}>{label}</span>
+      <span className={`ml-auto font-medium text-foreground ${small ? "text-[10px]" : "text-xs"}`}>
+        {value}
+      </span>
     </div>
   );
 }

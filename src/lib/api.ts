@@ -2,6 +2,13 @@ const API_BASE = "https://dreams-machine-7e6a3c0a6e6e.herokuapp.com";
 
 export type LoginTipo = "cliente" | "pessoa";
 
+// Callback para logout quando token expirar
+let onUnauthorizedCallback: (() => void) | null = null;
+
+export function setUnauthorizedCallback(callback: () => void) {
+  onUnauthorizedCallback = callback;
+}
+
 export function getToken(): string | null {
   const token = localStorage.getItem("token");
   console.log("[TOKEN] Recuperado do localStorage:", token ? `${token.slice(0, 24)}...` : "NULO/VAZIO");
@@ -166,7 +173,15 @@ export async function apiFetch<T = unknown>(
         url,
         errorMessage,
       });
-      throw new Error(errorMessage || "401 Unauthorized: token inválido, expirado ou sem permissão.");
+      
+      // Fazer logout automático e redirecionar
+      clearToken();
+      if (onUnauthorizedCallback) {
+        console.log("[401] Chamando callback de logout...");
+        onUnauthorizedCallback();
+      }
+      
+      throw new Error(errorMessage || "401 Unauthorized: token inválido, expirado ou sem permissão. Faça login novamente.");
     }
 
     throw new Error(errorMessage || `Erro ${res.status} em ${path}`);

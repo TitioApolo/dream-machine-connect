@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -23,18 +23,21 @@ export function MobileLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-border bg-card px-4 py-3 shadow-card">
-        <div>
-          <h1 className="font-display text-lg font-bold text-foreground">Dreams Machine</h1>
-          {user && (
-            <p className="text-xs text-muted-foreground">
-              {user.name || user.email} • {user.tipo === "pessoa" ? "Admin" : "Cliente"}
-            </p>
-          )}
+      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-primary/20 bg-card/95 px-4 py-3 shadow-gold backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <Crown className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="font-display text-sm font-bold tracking-wider text-primary">PIX MACHINE</h1>
+            {user && (
+              <p className="text-[10px] text-muted-foreground">
+                {user.name || user.email} • {user.tipo === "pessoa" ? "Admin" : "Cliente"}
+              </p>
+            )}
+          </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground transition-colors active:bg-secondary/80"
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground transition-colors active:bg-muted"
         >
           <LogOut className="h-3.5 w-3.5" />
           Sair
@@ -45,7 +48,7 @@ export function MobileLayout() {
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-elevated">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-card/95 shadow-gold backdrop-blur-sm">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -54,11 +57,13 @@ export function MobileLayout() {
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs transition-colors",
-                  isActive ? "font-semibold text-primary" : "text-muted-foreground active:text-foreground"
+                  "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs transition-all",
+                  isActive
+                    ? "font-bold text-primary"
+                    : "text-muted-foreground active:text-foreground"
                 )}
               >
-                <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
+                <item.icon className={cn("h-5 w-5", isActive && "text-primary drop-shadow-[0_0_6px_hsl(45,100%,50%,0.5)]")} />
                 {item.label}
               </button>
             );

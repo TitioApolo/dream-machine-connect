@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Cpu } from "lucide-react";
+import { Loader2, Crown } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -37,72 +37,93 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6"
-         style={{ background: "linear-gradient(160deg, hsl(220 25% 6%), hsl(220 25% 12%), hsl(210 40% 14%))" }}>
-      <div className="w-full max-w-sm animate-fade-in">
-        <div className="mb-10 flex flex-col items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/20 shadow-elevated ring-1 ring-primary/30">
-            <Cpu className="h-10 w-10 text-primary" />
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-6">
+      {/* Star field background */}
+      <div className="star-field" />
+
+      <div className="relative z-10 w-full max-w-sm animate-fade-in">
+        {/* Logo */}
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-2 border-primary/40 bg-card shadow-gold-lg animate-glow">
+            <Crown className="h-12 w-12 text-primary" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-foreground">Dreams Machine</h1>
+          <h1 className="font-display text-2xl font-bold tracking-wider text-primary">
+            PIX MACHINE
+          </h1>
           <p className="text-sm text-muted-foreground">Faça login para continuar</p>
         </div>
 
-        <div className="mb-6 flex rounded-xl bg-secondary p-1 ring-1 ring-border">
-          {(["cliente", "pessoa"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTipo(t)}
-              className={`flex-1 rounded-lg py-3 text-sm font-medium transition-all ${
-                tipo === t
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t === "cliente" ? "Cliente" : "Admin"}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Email</label>
-            <Input
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="h-12 rounded-xl bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-            />
+        {/* Login card */}
+        <div className="rounded-2xl border border-primary/20 bg-card/90 p-6 shadow-gold backdrop-blur-sm">
+          {/* Type toggle */}
+          <div className="mb-5 flex rounded-xl border border-border bg-secondary p-1">
+            {(["cliente", "pessoa"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTipo(t)}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
+                  tipo === t
+                    ? "bg-primary text-primary-foreground shadow-gold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t === "cliente" ? "Cliente" : "Admin"}
+              </button>
+            ))}
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Senha</label>
-            <Input
-              type="password"
-              placeholder="••••••••"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              required
-              className="h-12 rounded-xl bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Email
+              </label>
+              <Input
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="h-12 rounded-xl border-primary/30 bg-secondary text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary"
+              />
+            </div>
 
-          {error && <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">{error}</div>}
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Senha
+              </label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                required
+                className="h-12 rounded-xl border-primary/30 bg-secondary text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary"
+              />
+            </div>
 
-          <Button type="submit" disabled={loading} className="h-12 rounded-xl text-base font-semibold mt-2">
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Entrando...
-              </>
-            ) : (
-              `Entrar como ${tipo === "cliente" ? "Cliente" : "Admin"}`
+            {error && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
             )}
-          </Button>
-        </form>
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="h-12 rounded-xl bg-primary text-primary-foreground font-bold text-base shadow-gold hover:shadow-gold-lg transition-shadow mt-1"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                `Entrar como ${tipo === "cliente" ? "Cliente" : "Admin"}`
+              )}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );

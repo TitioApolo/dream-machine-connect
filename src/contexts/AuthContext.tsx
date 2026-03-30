@@ -70,7 +70,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       tipo,
     };
 
+    // Salvar token PRIMEIRO
     setToken(tokenRecebido);
+    
+    // Verificar que foi salvo corretamente
+    const tokenSalvo = localStorage.getItem("token");
+    console.log("[Auth] Token verificado após salvar:", tokenSalvo ? `${tokenSalvo.slice(0, 24)}...` : "FALHA!");
+    
+    if (!tokenSalvo) {
+      throw new Error("Falha ao salvar token no localStorage");
+    }
+
+    // Depois salvar os outros dados
     setAuthTipo(tipo);
     setUser(userData);
     if (data.key) {
@@ -79,6 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.id) {
       localStorage.setItem("userId", String(data.id));
     }
+
+    console.log("[Auth] Dados salvos:", {
+      token: tokenSalvo ? `${tokenSalvo.slice(0, 24)}...` : "NULO",
+      userType: localStorage.getItem("userType"),
+      userId: localStorage.getItem("userId"),
+    });
 
     setTokenState(tokenRecebido);
     setUserState(userData);

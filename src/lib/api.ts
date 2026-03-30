@@ -3,11 +3,14 @@ const API_BASE = "https://dreams-machine-7e6a3c0a6e6e.herokuapp.com";
 export type LoginTipo = "cliente" | "pessoa";
 
 export function getToken(): string | null {
-  return localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+  console.log("[TOKEN] Recuperado do localStorage:", token ? `${token.slice(0, 24)}...` : "NULO/VAZIO");
+  return token;
 }
 
 export function setToken(token: string) {
   localStorage.setItem("token", token);
+  console.log("[TOKEN] Salvo no localStorage:", token ? `${token.slice(0, 24)}...` : "VAZIO");
 }
 
 export function clearToken() {
@@ -111,11 +114,13 @@ export function isAdmin(): boolean {
 }
 
 function buildAuthHeaders(token: string, headers?: HeadersInit): HeadersInit {
-  return {
+  const finalHeaders = {
     "Content-Type": "application/json",
     "x-access-token": token,
     ...headers,
   };
+  console.log("[HEADERS] Construídos:", { "x-access-token": token ? `${token.slice(0, 24)}...` : "VAZIO" });
+  return finalHeaders;
 }
 
 export async function apiFetch<T = unknown>(
@@ -154,6 +159,13 @@ export async function apiFetch<T = unknown>(
         : undefined;
 
     if (res.status === 401) {
+      console.error("[401 ERROR] Token inválido!", {
+        token: token ? `${token.slice(0, 24)}...` : "NULO",
+        userType: getUserType(),
+        userId: getUserId(),
+        url,
+        errorMessage,
+      });
       throw new Error(errorMessage || "401 Unauthorized: token inválido, expirado ou sem permissão.");
     }
 

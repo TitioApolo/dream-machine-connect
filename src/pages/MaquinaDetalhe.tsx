@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
-  ArrowLeft, Cpu, MapPin, CheckCircle2, XCircle, Clock, DollarSign,
+  ArrowLeft, Cpu, MapPin, Wifi, WifiOff, Clock, DollarSign,
   CreditCard, Banknote, Gift, TrendingUp, Smartphone, CalendarIcon, RefreshCw,
   Undo2, Package, Edit3, Save
 } from "lucide-react";
@@ -133,7 +133,12 @@ export default function MaquinaDetalhe() {
   if (error) return <div className="rounded-2xl bg-destructive/10 p-6 text-center text-sm text-destructive">{error}</div>;
   if (!maquina) return null;
 
-  const isActive = !!maquina.ultimoPagamentoRecebido;
+  const isOnline = (() => {
+    const last = maquina.ultimaRequisicao || maquina.ultimoPagamentoRecebido;
+    if (!last) return false;
+    return Date.now() - new Date(last).getTime() < 5 * 60 * 1000;
+  })();
+
   const formatDateStr = (d?: string | null) => d ? new Date(d).toLocaleString("pt-BR") : "—";
   const toNum = (v?: string | number | null): number => {
     if (v == null) return 0;
@@ -176,19 +181,19 @@ export default function MaquinaDetalhe() {
     });
 
   const cards = [
-    { label: "Total", value: resumo?.total, icon: TrendingUp, color: "bg-primary/10 text-primary" },
-    { label: "PIX", value: resumo?.pix, icon: Smartphone, color: "bg-accent/10 text-accent" },
-    { label: "Espécie", value: resumo?.cash ?? resumo?.especie, icon: Banknote, color: "bg-success/10 text-success" },
-    { label: "Débito", value: resumo?.debito, icon: CreditCard, color: "bg-warning/10 text-warning" },
-    { label: "Crédito Remoto", value: resumo?.creditosRemotos ?? resumo?.creditoRemoto, icon: CreditCard, color: "bg-secondary text-secondary-foreground" },
-    { label: "Estornos", value: resumo?.estornos, icon: Undo2, color: "bg-destructive/10 text-destructive" },
-    { label: "Estoque", value: resumo?.estoque, icon: Package, color: "bg-primary/10 text-primary" },
+    { label: "Total", value: resumo?.total, icon: TrendingUp, color: "border-primary/30 bg-primary/10 text-primary" },
+    { label: "PIX", value: resumo?.pix, icon: Smartphone, color: "border-accent/30 bg-accent/10 text-accent" },
+    { label: "Espécie", value: resumo?.cash ?? resumo?.especie, icon: Banknote, color: "border-success/30 bg-success/10 text-success" },
+    { label: "Débito", value: resumo?.debito, icon: CreditCard, color: "border-warning/30 bg-warning/10 text-warning" },
+    { label: "Crédito Remoto", value: resumo?.creditosRemotos ?? resumo?.creditoRemoto, icon: CreditCard, color: "border-info/30 bg-info/10 text-info" },
+    { label: "Estornos", value: resumo?.estornos, icon: Undo2, color: "border-destructive/30 bg-destructive/10 text-destructive" },
+    { label: "Estoque", value: resumo?.estoque, icon: Package, color: "border-primary/30 bg-primary/10 text-primary" },
   ];
 
   const getTypeIcon = (tipo?: string) => {
     const t = (tipo || "").toLowerCase();
     if (t.includes("pix") || t.includes("bank_transfer")) return <Smartphone className="h-4 w-4 text-accent" />;
-    if (t.includes("remoto") || t.includes("credito_remoto")) return <CreditCard className="h-4 w-4 text-primary" />;
+    if (t.includes("remoto") || t.includes("credito_remoto")) return <CreditCard className="h-4 w-4 text-info" />;
     if (t.includes("espécie") || t.includes("cash")) return <Banknote className="h-4 w-4 text-success" />;
     return <DollarSign className="h-4 w-4 text-primary" />;
   };
@@ -209,31 +214,31 @@ export default function MaquinaDetalhe() {
         </button>
         <div className="flex items-center gap-2">
           {isAdmin() && !editing && (
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEditing(true)}>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-primary" onClick={() => setEditing(true)}>
               <Edit3 className="h-3 w-3" /> Editar
             </Button>
           )}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
+            <RefreshCw className="h-3 w-3 animate-spin text-primary/60" style={{ animationDuration: "3s" }} />
             {lastUpdate.toLocaleTimeString("pt-BR")}
           </div>
         </div>
       </div>
 
       {/* Machine header */}
-      <div className="rounded-2xl bg-card p-4 shadow-card border border-border">
+      <div className="rounded-2xl border border-primary/20 bg-card p-4 shadow-gold">
         {editing ? (
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Nome</label>
-              <Input value={editNome} onChange={(e) => setEditNome(e.target.value)} className="bg-secondary border-border" />
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Nome</label>
+              <Input value={editNome} onChange={(e) => setEditNome(e.target.value)} className="bg-secondary border-primary/20" />
             </div>
             <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Local</label>
-              <Input value={editLocal} onChange={(e) => setEditLocal(e.target.value)} className="bg-secondary border-border" />
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Local</label>
+              <Input value={editLocal} onChange={(e) => setEditLocal(e.target.value)} className="bg-secondary border-primary/20" />
             </div>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1">
+              <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1 shadow-gold">
                 <Save className="h-3 w-3" /> {saving ? "Salvando..." : "Salvar"}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
@@ -241,19 +246,19 @@ export default function MaquinaDetalhe() {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <Cpu className="h-6 w-6 text-primary" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+              <span className="text-2xl">🧸</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-display text-lg font-bold text-foreground truncate">{maquina.nome || "Máquina"}</h2>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {isActive ? (
-                  <span className="flex items-center gap-1 text-xs font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Ativa</span>
+              <h2 className="font-display text-base font-bold tracking-wide text-foreground truncate">{maquina.nome || "Máquina"}</h2>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {isOnline ? (
+                  <span className="flex items-center gap-1 text-xs font-bold text-success"><Wifi className="h-3.5 w-3.5" /> Online</span>
                 ) : (
-                  <span className="flex items-center gap-1 text-xs font-medium text-destructive"><XCircle className="h-3.5 w-3.5" /> Inativa</span>
+                  <span className="flex items-center gap-1 text-xs font-bold text-destructive"><WifiOff className="h-3.5 w-3.5" /> Offline</span>
                 )}
                 {(maquina.descricao || maquina.localizacao) && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3" />{maquina.descricao || maquina.localizacao}</span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3 w-3 text-primary/60" />{maquina.descricao || maquina.localizacao}</span>
                 )}
               </div>
             </div>
@@ -262,18 +267,18 @@ export default function MaquinaDetalhe() {
       </div>
 
       <Tabs defaultValue="resumo" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 rounded-xl bg-secondary h-10">
-          <TabsTrigger value="resumo" className="rounded-lg text-xs">Resumo</TabsTrigger>
-          <TabsTrigger value="transacoes" className="rounded-lg text-xs">Transações</TabsTrigger>
-          <TabsTrigger value="premios" className="rounded-lg text-xs">Prêmios</TabsTrigger>
-          <TabsTrigger value="info" className="rounded-lg text-xs">Detalhes</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 rounded-xl border border-primary/10 bg-secondary h-10">
+          <TabsTrigger value="resumo" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Resumo</TabsTrigger>
+          <TabsTrigger value="transacoes" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Transações</TabsTrigger>
+          <TabsTrigger value="premios" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Prêmios</TabsTrigger>
+          <TabsTrigger value="info" className="rounded-lg text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Detalhes</TabsTrigger>
         </TabsList>
 
         {/* RESUMO */}
         <TabsContent value="resumo" className="mt-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             {cards.map((c) => (
-              <div key={c.label} className="rounded-2xl bg-card p-3 shadow-card border border-border">
+              <div key={c.label} className={`rounded-2xl border bg-card p-3 shadow-card ${c.color.split(' ')[0]}`}>
                 <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${c.color}`}>
                   <c.icon className="h-4 w-4" />
                 </div>
@@ -286,8 +291,8 @@ export default function MaquinaDetalhe() {
           </div>
 
           {chartEntries.length > 0 && (
-            <div className="rounded-2xl bg-card p-4 shadow-card border border-border">
-              <h3 className="mb-3 text-sm font-bold text-foreground">Pagamentos por Dia</h3>
+            <div className="rounded-2xl border border-primary/10 bg-card p-4 shadow-card">
+              <h3 className="mb-3 text-sm font-bold text-primary font-display tracking-wide">Pagamentos por Dia</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={chartEntries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -306,16 +311,16 @@ export default function MaquinaDetalhe() {
 
         {/* TRANSAÇÕES */}
         <TabsContent value="transacoes" className="mt-4 space-y-3">
-          <div className="rounded-2xl bg-card p-3 shadow-card border border-border">
+          <div className="rounded-2xl border border-primary/10 bg-card p-3 shadow-card">
             <div className="flex items-center gap-2 mb-2">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <CalendarIcon className="h-4 w-4 text-primary/60" />
               <span className="text-xs font-medium text-foreground">Filtrar por data</span>
             </div>
             <div className="flex items-center gap-2">
               <DatePicker label="De" date={dateFrom} onSelect={setDateFrom} />
               <DatePicker label="Até" date={dateTo} onSelect={setDateTo} />
               {(dateFrom || dateTo) && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-8 px-2">Limpar</Button>
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-8 px-2 text-primary">Limpar</Button>
               )}
             </div>
             {(dateFrom || dateTo) && (
@@ -327,7 +332,7 @@ export default function MaquinaDetalhe() {
             <div className="flex flex-col gap-2">
               {transacoes.map((p, i) => (
                 <div key={p.id || i} className={cn(
-                  "flex items-center justify-between rounded-xl bg-card px-4 py-3 shadow-card border border-border",
+                  "flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-card",
                   p.estornado && "opacity-50"
                 )}>
                   <div className="flex items-center gap-3">
@@ -345,7 +350,7 @@ export default function MaquinaDetalhe() {
                       <p className="text-xs text-muted-foreground">{formatDateStr(p.data)}</p>
                     </div>
                   </div>
-                  <p className={cn("text-sm font-bold", p.estornado ? "text-destructive" : "text-foreground")}>
+                  <p className={cn("text-sm font-bold", p.estornado ? "text-destructive" : "text-primary")}>
                     {formatCurrency(p.valor)}
                   </p>
                 </div>
@@ -361,9 +366,9 @@ export default function MaquinaDetalhe() {
           {premiosEntregues.length > 0 ? (
             <div className="flex flex-col gap-2">
               {premiosEntregues.map((p, i) => (
-                <div key={p.id || i} className="flex items-center gap-3 rounded-xl bg-card px-4 py-3 shadow-card border border-border">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10">
-                    <Gift className="h-4 w-4 text-warning" />
+                <div key={p.id || i} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-card">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                    <Gift className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">Prêmio entregue</p>
@@ -379,9 +384,9 @@ export default function MaquinaDetalhe() {
 
         {/* DETALHES */}
         <TabsContent value="info" className="mt-4">
-          <div className="rounded-2xl bg-card p-4 shadow-card border border-border space-y-2">
-            {maquina.maquininha_serial && <InfoRow icon={Cpu} label="Serial" value={maquina.maquininha_serial} />}
-            {maquina.store_id && <InfoRow icon={Cpu} label="Store ID" value={maquina.store_id} />}
+          <div className="rounded-2xl border border-primary/10 bg-card p-4 shadow-card space-y-2">
+            {maquina.maquininha_serial && <InfoRow icon={Cpu} label="Serial (MP)" value={maquina.maquininha_serial} />}
+            {maquina.store_id && <InfoRow icon={Cpu} label="Store ID (PAG)" value={maquina.store_id} />}
             <InfoRow icon={DollarSign} label="Último pagamento" value={formatDateStr(maquina.ultimoPagamentoRecebido)} />
             <InfoRow icon={Clock} label="Última requisição" value={formatDateStr(maquina.ultimaRequisicao)} />
             {maquina.dataInclusao && <InfoRow icon={Clock} label="Data inclusão" value={formatDateStr(maquina.dataInclusao)} />}
@@ -396,12 +401,12 @@ function DatePicker({ label, date, onSelect }: { label: string; date?: Date; onS
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className={cn("h-8 flex-1 justify-start text-left text-xs font-normal", !date && "text-muted-foreground")}>
+        <Button variant="outline" className={cn("h-8 flex-1 justify-start text-left text-xs font-normal border-primary/20", !date && "text-muted-foreground")}>
           <CalendarIcon className="mr-1.5 h-3 w-3" />
           {date ? format(date, "dd/MM/yyyy") : label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 border-primary/20" align="start">
         <Calendar mode="single" selected={date} onSelect={onSelect} initialFocus className={cn("p-3 pointer-events-auto")} />
       </PopoverContent>
     </Popover>
@@ -411,7 +416,7 @@ function DatePicker({ label, date, onSelect }: { label: string; date?: Date; onS
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
     <div className="flex items-start gap-3 rounded-xl bg-secondary/50 px-3 py-2">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary/60" />
       <div>
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-sm font-medium text-foreground">{value}</p>
@@ -422,7 +427,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl bg-card p-8 text-center shadow-card border border-border">
+    <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-card">
       <p className="text-sm text-muted-foreground">{text}</p>
     </div>
   );

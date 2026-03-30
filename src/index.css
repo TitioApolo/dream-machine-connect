@@ -1,61 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 220 25% 10%;
-    --foreground: 220 10% 92%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
 
-    --card: 220 25% 14%;
-    --card-foreground: 220 10% 92%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 220 25% 14%;
-    --popover-foreground: 220 10% 92%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 210 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 45 100% 50%;
+    --primary-foreground: 0 0% 5%;
 
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 220 10% 85%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 80%;
 
-    --muted: 220 20% 20%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 160 70% 42%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 45 80% 45%;
+    --accent-foreground: 0 0% 5%;
 
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 22%;
-    --input: 220 20% 22%;
-    --ring: 210 100% 50%;
+    --border: 45 30% 18%;
+    --input: 45 20% 15%;
+    --ring: 45 100% 50%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 25% 8%;
-    --sidebar-foreground: 220 10% 85%;
-    --sidebar-primary: 210 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 16%;
-    --sidebar-accent-foreground: 220 10% 90%;
-    --sidebar-border: 220 20% 18%;
-    --sidebar-ring: 210 100% 50%;
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 45 100% 50%;
+    --sidebar-primary-foreground: 0 0% 5%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 45 20% 14%;
+    --sidebar-ring: 45 100% 50%;
 
-    --success: 160 70% 42%;
+    --success: 140 60% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 40 95% 55%;
+    --warning: 30 90% 55%;
     --warning-foreground: 0 0% 10%;
-    --info: 210 100% 50%;
+    --info: 210 80% 55%;
     --info-foreground: 0 0% 100%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(210 100% 45%), hsl(210 100% 60%));
-    --gradient-accent: linear-gradient(135deg, hsl(160 70% 40%), hsl(160 70% 50%));
-    --gradient-dark: linear-gradient(135deg, hsl(220 25% 8%), hsl(220 25% 14%));
-
-    --shadow-card: 0 2px 12px -2px hsl(220 30% 5% / 0.4);
-    --shadow-elevated: 0 8px 30px -8px hsl(220 30% 5% / 0.6);
+    --shadow-card: 0 4px 20px -4px hsl(0 0% 0% / 0.5);
+    --shadow-elevated: 0 8px 40px -8px hsl(45 100% 50% / 0.1);
   }
 }
 
@@ -64,10 +62,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  background: hsl(0 0% 4%);
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Orbitron', sans-serif;
 }
 
 @keyframes fade-in {
@@ -84,6 +83,16 @@ h1, h2, h3, h4, h5, h6 {
   to { transform: rotate(360deg); }
 }
 
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px hsl(45 100% 50% / 0.15); }
+  50% { box-shadow: 0 0 40px hsl(45 100% 50% / 0.3); }
+}
+
 .animate-fade-in {
   animation: fade-in 0.4s ease-out forwards;
 }
@@ -94,6 +103,53 @@ h1, h2, h3, h4, h5, h6 {
 
 .animate-spin-slow {
   animation: spin-slow 1.2s linear infinite;
+}
+
+.animate-twinkle {
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Star field background for login */
+.star-field {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 0%, hsl(220 30% 8%) 0%, hsl(0 0% 2%) 70%);
+}
+
+.star-field::before,
+.star-field::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(1px 1px at 10% 20%, hsl(45 100% 80% / 0.6), transparent),
+    radial-gradient(1px 1px at 30% 40%, hsl(45 100% 90% / 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 50% 10%, hsl(45 100% 80% / 0.8), transparent),
+    radial-gradient(1px 1px at 70% 60%, hsl(45 100% 70% / 0.5), transparent),
+    radial-gradient(1px 1px at 80% 30%, hsl(45 100% 90% / 0.3), transparent),
+    radial-gradient(1.5px 1.5px at 20% 70%, hsl(45 100% 80% / 0.6), transparent),
+    radial-gradient(1px 1px at 60% 80%, hsl(45 100% 70% / 0.4), transparent),
+    radial-gradient(1px 1px at 90% 50%, hsl(45 100% 90% / 0.5), transparent),
+    radial-gradient(1px 1px at 40% 90%, hsl(45 100% 80% / 0.3), transparent),
+    radial-gradient(1.5px 1.5px at 15% 50%, hsl(45 100% 90% / 0.7), transparent);
+}
+
+.star-field::after {
+  animation: twinkle 4s ease-in-out infinite alternate;
+  background-image: 
+    radial-gradient(1px 1px at 25% 15%, hsl(45 100% 90% / 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 45% 55%, hsl(45 100% 80% / 0.7), transparent),
+    radial-gradient(1px 1px at 65% 25%, hsl(45 100% 70% / 0.4), transparent),
+    radial-gradient(1px 1px at 85% 75%, hsl(45 100% 90% / 0.6), transparent),
+    radial-gradient(1px 1px at 5% 85%, hsl(45 100% 80% / 0.3), transparent),
+    radial-gradient(1.5px 1.5px at 55% 35%, hsl(45 100% 90% / 0.5), transparent),
+    radial-gradient(1px 1px at 75% 95%, hsl(45 100% 70% / 0.4), transparent),
+    radial-gradient(1px 1px at 35% 5%, hsl(45 100% 80% / 0.6), transparent);
 }
 
 @layer base {

@@ -4,8 +4,8 @@ import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   ArrowLeft, Cpu, MapPin, Wifi, WifiOff, Clock, DollarSign,
-  CreditCard, Banknote, Gift, TrendingUp, Smartphone, CalendarIcon, RefreshCw,
-  Undo2, Package, Edit3, Save
+  CreditCard, Banknote, Gift, TrendingUp, CalendarIcon, RefreshCw,
+  Undo2, Edit3, Save
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,16 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+
+const toNum = (v?: unknown): number => {
+  if (v == null) return 0;
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+};
+
+const fmt = (v: number) => {
+  return `R$ ${v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+};
 
 interface MaquinaData {
   id: string;
@@ -29,32 +39,28 @@ interface MaquinaData {
   [key: string]: unknown;
 }
 
-interface PagamentoItem {
+interface Transacao {
   id?: string;
   data?: string;
   valor?: string | number;
   tipo?: string;
+  tipoPagamento?: string;
   tipoTransacao?: string;
   identificador?: string;
   estornado?: boolean;
   removido?: boolean;
   operadora?: string;
+  quantidade?: number | string;
+  observacao?: string;
   [key: string]: unknown;
 }
 
 interface PagamentoResumo {
-  total?: number;
-  pix?: string | number;
-  cash?: number;
-  especie?: number;
-  debito?: string | number;
-  credito?: string | number;
-  creditosRemotos?: string | number;
-  creditoRemoto?: string | number;
-  estornos?: number;
-  estoque?: number;
-  premios?: number;
-  pagamentos?: PagamentoItem[];
+  total?: number | string;
+  pix?: number | string;
+  especie?: number | string;
+  debito?: number | string;
+  creditoRemoto?: number | string;
   [key: string]: unknown;
 }
 
@@ -63,6 +69,8 @@ export default function MaquinaDetalhe() {
   const navigate = useNavigate();
   const [maquina, setMaquina] = useState<MaquinaData | null>(null);
   const [resumo, setResumo] = useState<PagamentoResumo | null>(null);
+  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [premios, setPremios] = useState<Transacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
@@ -77,10 +85,31 @@ export default function MaquinaDetalhe() {
   const fetchDynamic = useCallback(async () => {
     if (!id) return;
     try {
-      const path = isAdmin() ? `/pagamentos-adm/${id}` : `/pagamentos/${id}`;
+      const path = isAdmin() ? `/pagamentos/${id}` : `/pagamentos/${id}`;
       const data = await apiFetch<PagamentoResumo>(path);
       console.log("[MaquinaDetalhe] PAGAMENTOS RESPONSE:", data);
       setResumo(data);
+      
+      // Carregar transações
+      const transPath = `/transacoes?maquinaId=${id}`;
+      try {
+        const transData = await apiFetch<Transacao[]>(transPath);
+        console.log("[MaquinaDetalhe] TRANSAÇÕES RESPONSE:", transData);
+        setTransacoes(Array.isArray(transData) ? transData : []);
+      } catch (err) {
+        console.warn("[MaquinaDetalhe] Erro ao carregar transações:", err);
+      }
+      
+      // Carregar prêmios
+      const prePath = isAdmin() ? `/premios-entregues-adm/${id}` : `/premios-entregues/${id}`;
+      try {
+        const preData = await apiFetch<Transacao[]>(prePath);
+        console.log("[MaquinaDetalhe] PRÊMIOS RESPONSE:", preData);
+        setPremios(Array.isArray(preData) ? preData : []);
+      } catch (err) {
+        console.warn("[MaquinaDetalhe] Erro ao carregar prêmios:", err);
+      }
+      
       setLastUpdate(new Date());
     } catch (err) {
       console.warn("[MaquinaDetalhe] pagamentos error:", err);
@@ -140,20 +169,10 @@ export default function MaquinaDetalhe() {
   })();
 
   const formatDateStr = (d?: string | null) => d ? new Date(d).toLocaleString("pt-BR") : "—";
-  const toNum = (v?: string | number | null): number => {
-    if (v == null) return 0;
-    return typeof v === "string" ? parseFloat(v) || 0 : v;
-  };
-  const formatCurrency = (v?: string | number | null) => {
-    const n = toNum(v);
-    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  };
 
-  const allPagamentos = resumo?.pagamentos || [];
-
-  const filteredPagamentos = allPagamentos.filter((p) => {
-    if (!p.data) return true;
-    const d = new Date(p.data);
+  const filteredTransacoes = transacoes.filter((t) => {
+    if (!t.data) return true;
+    const d = new Date(t.data);
     if (dateFrom && d < dateFrom) return false;
     if (dateTo) {
       const end = new Date(dateTo);
@@ -163,13 +182,10 @@ export default function MaquinaDetalhe() {
     return true;
   });
 
-  const transacoes = filteredPagamentos.filter((p) => p.tipoTransacao === "pagamento" || p.tipoTransacao === "credito_remoto" || p.tipo === "bank_transfer");
-  const premiosEntregues = filteredPagamentos.filter((p) => p.tipoTransacao === "premio" || (p.tipo || "").toLowerCase().includes("prêmio") || (p.tipo || "").toLowerCase().includes("premio"));
-
-  const chartData = filteredPagamentos.reduce<Record<string, number>>((acc, p) => {
-    if (!p.data || p.estornado || p.removido) return acc;
-    const day = new Date(p.data).toLocaleDateString("pt-BR");
-    acc[day] = (acc[day] || 0) + toNum(p.valor);
+  const chartData = transacoes.reduce<Record<string, number>>((acc, t) => {
+    if (!t.data || t.estornado || t.removido) return acc;
+    const day = new Date(t.data).toLocaleDateString("pt-BR");
+    acc[day] = (acc[day] || 0) + toNum(t.valor);
     return acc;
   }, {});
   const chartEntries = Object.entries(chartData)
@@ -182,26 +198,24 @@ export default function MaquinaDetalhe() {
 
   const cards = [
     { label: "Total", value: resumo?.total, icon: TrendingUp, color: "border-primary/30 bg-primary/10 text-primary" },
-    { label: "PIX", value: resumo?.pix, icon: Smartphone, color: "border-accent/30 bg-accent/10 text-accent" },
-    { label: "Espécie", value: resumo?.cash ?? resumo?.especie, icon: Banknote, color: "border-success/30 bg-success/10 text-success" },
-    { label: "Débito", value: resumo?.debito, icon: CreditCard, color: "border-warning/30 bg-warning/10 text-warning" },
-    { label: "Crédito Remoto", value: resumo?.creditosRemotos ?? resumo?.creditoRemoto, icon: CreditCard, color: "border-info/30 bg-info/10 text-info" },
-    { label: "Estornos", value: resumo?.estornos, icon: Undo2, color: "border-destructive/30 bg-destructive/10 text-destructive" },
-    { label: "Estoque", value: resumo?.estoque, icon: Package, color: "border-primary/30 bg-primary/10 text-primary" },
+    { label: "PIX", value: resumo?.pix, icon: Banknote, color: "border-blue-400/30 bg-blue-400/10 text-blue-400" },
+    { label: "Espécie", value: resumo?.especie, icon: Banknote, color: "border-green-400/30 bg-green-400/10 text-green-400" },
+    { label: "Débito", value: resumo?.debito, icon: CreditCard, color: "border-yellow-400/30 bg-yellow-400/10 text-yellow-400" },
+    { label: "Crédito Remoto", value: resumo?.creditoRemoto, icon: CreditCard, color: "border-purple-400/30 bg-purple-400/10 text-purple-400" },
   ];
 
   const getTypeIcon = (tipo?: string) => {
     const t = (tipo || "").toLowerCase();
-    if (t.includes("pix") || t.includes("bank_transfer")) return <Smartphone className="h-4 w-4 text-accent" />;
+    if (t.includes("pix") || t.includes("bank_transfer")) return <Banknote className="h-4 w-4 text-accent" />;
     if (t.includes("remoto") || t.includes("credito_remoto")) return <CreditCard className="h-4 w-4 text-info" />;
     if (t.includes("espécie") || t.includes("cash")) return <Banknote className="h-4 w-4 text-success" />;
     return <DollarSign className="h-4 w-4 text-primary" />;
   };
 
-  const getTypeLabel = (p: PagamentoItem) => {
-    if (p.tipoTransacao === "credito_remoto") return "Crédito Remoto";
-    if (p.tipo === "bank_transfer") return "PIX";
-    return p.tipo || p.tipoTransacao || "—";
+  const getTypeLabel = (t: Transacao) => {
+    if (t.tipoTransacao === "credito_remoto") return "Crédito Remoto";
+    if (t.tipo === "bank_transfer") return "PIX";
+    return t.tipoPagamento || t.tipo || "—";
   };
 
   const clearFilters = () => { setDateFrom(undefined); setDateTo(undefined); };
@@ -282,9 +296,7 @@ export default function MaquinaDetalhe() {
                 <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${c.color}`}>
                   <c.icon className="h-4 w-4" />
                 </div>
-                <p className="text-lg font-bold text-foreground">
-                  {c.label === "Estoque" ? (toNum(c.value)) : formatCurrency(c.value)}
-                </p>
+                <p className="text-lg font-bold text-foreground">{fmt(toNum(c.value))}</p>
                 <p className="text-xs text-muted-foreground">{c.label}</p>
               </div>
             ))}
@@ -299,7 +311,7 @@ export default function MaquinaDetalhe() {
                   <XAxis dataKey="dia" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--border))" />
                   <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), "Valor"]}
+                    formatter={(value: number) => [fmt(value), "Valor"]}
                     contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--foreground))" }}
                   />
                   <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -324,13 +336,13 @@ export default function MaquinaDetalhe() {
               )}
             </div>
             {(dateFrom || dateTo) && (
-              <p className="mt-2 text-xs text-muted-foreground">{filteredPagamentos.length} de {allPagamentos.length} registros</p>
+              <p className="mt-2 text-xs text-muted-foreground">{filteredTransacoes.length} de {transacoes.length} registros</p>
             )}
           </div>
 
-          {transacoes.length > 0 ? (
+          {filteredTransacoes.length > 0 ? (
             <div className="flex flex-col gap-2">
-              {transacoes.map((p, i) => (
+              {filteredTransacoes.map((p, i) => (
                 <div key={p.id || i} className={cn(
                   "flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-card",
                   p.estornado && "opacity-50"
@@ -351,7 +363,7 @@ export default function MaquinaDetalhe() {
                     </div>
                   </div>
                   <p className={cn("text-sm font-bold", p.estornado ? "text-destructive" : "text-primary")}>
-                    {formatCurrency(p.valor)}
+                    {fmt(toNum(p.valor))}
                   </p>
                 </div>
               ))}
@@ -363,16 +375,19 @@ export default function MaquinaDetalhe() {
 
         {/* PRÊMIOS */}
         <TabsContent value="premios" className="mt-4 space-y-3">
-          {premiosEntregues.length > 0 ? (
+          {premios.length > 0 ? (
             <div className="flex flex-col gap-2">
-              {premiosEntregues.map((p, i) => (
+              {premios.map((p, i) => (
                 <div key={p.id || i} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-card">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                     <Gift className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Prêmio entregue</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {p.quantidade ? `${p.quantidade}x ` : ""}Prêmio{p.quantidade && toNum(p.quantidade) > 1 ? "s" : ""}
+                    </p>
                     <p className="text-xs text-muted-foreground">{formatDateStr(p.data)}</p>
+                    {p.observacao && <p className="text-xs text-muted-foreground/70 mt-1">{p.observacao}</p>}
                   </div>
                 </div>
               ))}

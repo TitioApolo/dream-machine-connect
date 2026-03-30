@@ -127,6 +127,8 @@ export async function apiFetch<T = unknown>(
 
   console.log("[API] URL:", url);
   console.log("[API] Token:", token ? `${token.slice(0, 24)}...` : "MISSING");
+  console.log("[API] User Type:", getUserType());
+  console.log("[API] User ID:", getUserId());
 
   if (!token || token.trim().length === 0) {
     throw new Error("Token não encontrado. Faça login novamente.");

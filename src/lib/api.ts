@@ -146,17 +146,60 @@ export async function apiFetch<T = unknown>(
     throw new Error("Token não encontrado. Faça login novamente.");
   }
 
-  const headers = buildAuthHeaders(token, options.headers);
-  console.log("[API] Headers:", headers);
-
-  const res = await fetch(url, {
+  // Tentar com x-access-token (primeira tentativa)
+  let headers = buildAuthHeaders(token, options.headers);
+  
+  let res = await fetch(url, {
     ...options,
     headers,
   });
 
-  const rawData = await parseResponse(res);
+  let rawData = await parseResponse(res);
   console.log("[API] Status:", res.status);
   console.log("[API] Response:", rawData);
+  
+  // Se 401 com x-access-token, tentar com Authorization Bearer
+  if (res.status === 401) {
+    console.warn("[API] 401 com x-access-token, tentando Authorization: Bearer...");
+    
+    headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      ...options.headers,
+    };
+    
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+    
+    rawData = await parseResponse(res);
+    console.log("[API] Retry Status:", res.status);
+    console.log("[API] Retry Response:", rawData);
+  }
+  
+  // Se ainda 401, tentar sem header de auth (talvez o backend use query param)
+  if (res.status === 401 && url.includes("?") === false) {
+    console.warn("[API] 401 com Authorization, tentando token em query param...");
+    
+    headers = {
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+    
+    const urlWithToken = url.includes("?") 
+      ? `${url}&token=${token}`
+      : `${url}?token=${token}`;
+    
+    res = await fetch(urlWithToken, {
+      ...options,
+      headers,
+    });
+    
+    rawData = await parseResponse(res);
+    console.log("[API] Query Param Status:", res.status);
+    console.log("[API] Query Param Response:", rawData);
+  }
   
   // Log detalhado da resposta para debug
   if (!res.ok) {

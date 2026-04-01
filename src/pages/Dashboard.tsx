@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { apiFetch, isAdmin, getUserId, getUserType } from "@/lib/api";
+import { apiFetch, apiFetchFirst, isAdmin, getUserId, getUserType } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Cpu, TrendingUp, Users, Wifi, BarChart3, Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -47,9 +47,17 @@ export default function Dashboard() {
 
       console.log("[Dashboard] Carregando estatísticas para:", { userId, userType });
 
-      // Se for ADMIN, usamos a rota geral de admin sem ID
-      const path = userType === "ADMIN" ? "/estatisticas-gerais-adm" : `/estatisticas-gerais/${userId}`;
-      const statsData = await apiFetch<EstatisticasData>(path);
+      // Se for ADMIN, tentamos várias rotas possíveis para evitar 404
+      let statsData: EstatisticasData;
+      if (userType === "ADMIN") {
+        statsData = await apiFetchFirst<EstatisticasData>([
+          "/estatisticas-gerais",
+          "/estatisticas-gerais-adm",
+          `/estatisticas-gerais/${userId}`
+        ]);
+      } else {
+        statsData = await apiFetch<EstatisticasData>(`/estatisticas-gerais/${userId}`);
+      }
       console.log("[Dashboard] Estatísticas:", statsData);
       
       setData(statsData || {});

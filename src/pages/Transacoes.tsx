@@ -237,7 +237,8 @@ export default function Transacoes() {
                     <p className="text-xs text-muted-foreground">{formatDate(t)}</p>
                     {(t.maquinaNome || (t as any).estabelecimentoNome) && (
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                        {(t as any).estabelecimentoNome && `${(t as any).estabelecimentoNome} - `}{t.maquinaNome}
+                        {(t as any).estabelecimentoNome ? (t as any).estabelecimentoNome : t.maquinaNome}
+                        {(t as any).estabelecimentoNome && t.maquinaNome && t.maquinaNome !== (t as any).estabelecimentoNome ? ` - ${t.maquinaNome}` : ""}
                       </p>
                     )}
                   </div>

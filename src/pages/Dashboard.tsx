@@ -47,7 +47,7 @@ export default function Dashboard() {
 
       console.log("[Dashboard] Carregando estatísticas para:", { userId, userType });
 
-      // Se for ADMIN, talvez precise de uma rota diferente ou o ID correto
+      // Se for ADMIN, usamos a rota geral de admin sem ID
       const path = userType === "ADMIN" ? "/estatisticas-gerais-adm" : `/estatisticas-gerais/${userId}`;
       const statsData = await apiFetch<EstatisticasData>(path);
       console.log("[Dashboard] Estatísticas:", statsData);

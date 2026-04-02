@@ -11,6 +11,8 @@ import Maquinas from "./pages/Maquinas";
 import MaquinaDetalhe from "./pages/MaquinaDetalhe";
 import Pagamentos from "./pages/Pagamentos";
 import Transacoes from "./pages/Transacoes";
+import CartaoCredito from "./pages/CartaoCredito";
+import Reembolso from "./pages/Reembolso";
 import Premios from "./pages/Premios";
 import { MobileLayout } from "./components/MobileLayout";
 import NotFound from "./pages/NotFound";

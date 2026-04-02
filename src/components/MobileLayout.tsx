@@ -61,7 +61,7 @@ export function MobileLayout() {
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-card/95 shadow-gold backdrop-blur-sm">
-        <div className="flex items-center justify-around py-2">
+        <div className="flex items-center overflow-x-auto scrollbar-hide py-2 px-1 gap-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
             return (

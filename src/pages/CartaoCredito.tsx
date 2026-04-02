@@ -1,16 +1,19 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { apiFetch, isAdmin } from "@/lib/api";
+import { apiFetch, isAdmin, getUserId } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { CreditCard, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface CartaoItem {
+interface Transacao {
   id?: string;
   data?: string;
   dataHora?: string;
-  valor?: number | string;
-  status?: string;
-  bandeira?: string;
+  valor?: string | number;
+  tipo?: string;
+  tipoTransacao?: string;
+  estornado?: boolean;
+  removido?: boolean;
+  identificador?: string;
   maquinaNome?: string;
   estabelecimentoNome?: string;
   [key: string]: unknown;
@@ -28,6 +31,12 @@ interface ClienteItem {
   Maquina: MaquinaItem[];
 }
 
+interface PagamentosResponse {
+  pagamentos?: Transacao[];
+  credito?: number | string;
+  [key: string]: unknown;
+}
+
 const fmt = (v: number) =>
   `R$ ${v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -38,7 +47,8 @@ const toNum = (v?: unknown): number => {
 };
 
 export default function CartaoCredito() {
-  const [items, setItems] = useState<CartaoItem[]>([]);
+  const [items, setItems] = useState<Transacao[]>([]);
+  const [totalCredito, setTotalCredito] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -59,17 +69,30 @@ export default function CartaoCredito() {
         machines = Array.isArray(list) ? list : [];
       }
 
-      const all: CartaoItem[] = [];
+      const allCredito: Transacao[] = [];
+      let sumCredito = 0;
+
       await Promise.allSettled(
         machines.map(async (m) => {
           try {
             const path = isAdmin()
-              ? `/api/cartao-credito-adm/${m.id}`
-              : `/api/cartao-credito/${m.id}`;
-            const data = await apiFetch<CartaoItem[]>(path);
-            const list = Array.isArray(data) ? data : [];
-            list.forEach((item) => {
-              all.push({ ...item, maquinaNome: m.nome || m.id, estabelecimentoNome: m.estabelecimentoNome });
+              ? `/pagamentos-adm/${m.id}`
+              : `/pagamentos/${m.id}`;
+            const data = await apiFetch<PagamentosResponse>(path);
+
+            sumCredito += toNum(data.credito);
+
+            // Filter credit card transactions from the pagamentos array
+            const pagamentos = Array.isArray(data.pagamentos) ? data.pagamentos : [];
+            const creditTransactions = pagamentos.filter(
+              (p) => p.tipo === "credit_card" || p.tipo === "1"
+            );
+            creditTransactions.forEach((t) => {
+              allCredito.push({
+                ...t,
+                maquinaNome: m.nome || m.id,
+                estabelecimentoNome: m.estabelecimentoNome,
+              });
             });
           } catch (err) {
             console.warn(`[CartaoCredito] Erro máquina ${m.id}:`, err);
@@ -77,13 +100,15 @@ export default function CartaoCredito() {
         })
       );
 
-      all.sort((a, b) => {
+      // Sort by date desc
+      allCredito.sort((a, b) => {
         const da = a.data || a.dataHora;
         const db = b.data || b.dataHora;
         return (db ? new Date(db).getTime() : 0) - (da ? new Date(da).getTime() : 0);
       });
 
-      setItems(all);
+      setItems(allCredito);
+      setTotalCredito(sumCredito);
       setLastUpdate(new Date());
       setError("");
     } catch (err) {
@@ -99,7 +124,7 @@ export default function CartaoCredito() {
 
   if (loading) return <LoadingSpinner text="Carregando cartões..." />;
 
-  const formatDate = (item: CartaoItem) => {
+  const formatDate = (item: Transacao) => {
     const d = item.data || item.dataHora;
     return d ? new Date(d).toLocaleString("pt-BR") : "—";
   };
@@ -114,6 +139,19 @@ export default function CartaoCredito() {
         </div>
       </div>
 
+      {/* Total card */}
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-gold">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
+            <CreditCard className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Crédito</p>
+            <p className="font-display text-2xl font-bold text-primary">{fmt(totalCredito)}</p>
+          </div>
+        </div>
+      </Card>
+
       {error && (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
@@ -123,7 +161,7 @@ export default function CartaoCredito() {
       {items.length === 0 ? (
         <Card className="border-border bg-card/60 p-8 text-center">
           <CreditCard className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Nenhuma transação de cartão encontrada</p>
+          <p className="text-sm text-muted-foreground">Nenhuma transação de cartão de crédito encontrada</p>
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
@@ -135,9 +173,7 @@ export default function CartaoCredito() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-foreground">
-                      {item.bandeira || "Cartão de Crédito"}
-                    </p>
+                    <p className="text-sm font-medium text-foreground">Cartão de Crédito</p>
                     <p className="text-sm font-bold text-primary">{fmt(toNum(item.valor))}</p>
                   </div>
                   <p className="text-xs text-muted-foreground">{formatDate(item)}</p>
@@ -146,8 +182,8 @@ export default function CartaoCredito() {
                       {item.estabelecimentoNome && `${item.estabelecimentoNome} - `}{item.maquinaNome}
                     </p>
                   )}
-                  {item.status && (
-                    <p className="text-xs text-muted-foreground/70 mt-1">{String(item.status)}</p>
+                  {item.identificador && (
+                    <p className="text-xs text-muted-foreground/70 mt-1">{String(item.identificador)}</p>
                   )}
                 </div>
               </div>

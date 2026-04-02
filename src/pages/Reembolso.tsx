@@ -4,13 +4,16 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RotateCcw, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface ReembolsoItem {
+interface Transacao {
   id?: string;
   data?: string;
   dataHora?: string;
-  valor?: number | string;
-  motivo?: string;
-  status?: string;
+  valor?: string | number;
+  tipo?: string;
+  tipoTransacao?: string;
+  estornado?: boolean;
+  removido?: boolean;
+  identificador?: string;
   maquinaNome?: string;
   estabelecimentoNome?: string;
   [key: string]: unknown;
@@ -28,6 +31,12 @@ interface ClienteItem {
   Maquina: MaquinaItem[];
 }
 
+interface PagamentosResponse {
+  pagamentos?: Transacao[];
+  estornos?: number | string;
+  [key: string]: unknown;
+}
+
 const fmt = (v: number) =>
   `R$ ${v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -38,7 +47,8 @@ const toNum = (v?: unknown): number => {
 };
 
 export default function Reembolso() {
-  const [items, setItems] = useState<ReembolsoItem[]>([]);
+  const [items, setItems] = useState<Transacao[]>([]);
+  const [totalEstornos, setTotalEstornos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -59,17 +69,28 @@ export default function Reembolso() {
         machines = Array.isArray(list) ? list : [];
       }
 
-      const all: ReembolsoItem[] = [];
+      const allEstornos: Transacao[] = [];
+      let sumEstornos = 0;
+
       await Promise.allSettled(
         machines.map(async (m) => {
           try {
             const path = isAdmin()
-              ? `/api/reembolsos-adm/${m.id}`
-              : `/api/reembolsos/${m.id}`;
-            const data = await apiFetch<ReembolsoItem[]>(path);
-            const list = Array.isArray(data) ? data : [];
-            list.forEach((item) => {
-              all.push({ ...item, maquinaNome: m.nome || m.id, estabelecimentoNome: m.estabelecimentoNome });
+              ? `/pagamentos-adm/${m.id}`
+              : `/pagamentos/${m.id}`;
+            const data = await apiFetch<PagamentosResponse>(path);
+
+            sumEstornos += toNum(data.estornos);
+
+            // Filter refunded transactions
+            const pagamentos = Array.isArray(data.pagamentos) ? data.pagamentos : [];
+            const refunded = pagamentos.filter((p) => p.estornado === true);
+            refunded.forEach((t) => {
+              allEstornos.push({
+                ...t,
+                maquinaNome: m.nome || m.id,
+                estabelecimentoNome: m.estabelecimentoNome,
+              });
             });
           } catch (err) {
             console.warn(`[Reembolso] Erro máquina ${m.id}:`, err);
@@ -77,13 +98,14 @@ export default function Reembolso() {
         })
       );
 
-      all.sort((a, b) => {
+      allEstornos.sort((a, b) => {
         const da = a.data || a.dataHora;
         const db = b.data || b.dataHora;
         return (db ? new Date(db).getTime() : 0) - (da ? new Date(da).getTime() : 0);
       });
 
-      setItems(all);
+      setItems(allEstornos);
+      setTotalEstornos(sumEstornos);
       setLastUpdate(new Date());
       setError("");
     } catch (err) {
@@ -99,9 +121,18 @@ export default function Reembolso() {
 
   if (loading) return <LoadingSpinner text="Carregando reembolsos..." />;
 
-  const formatDate = (item: ReembolsoItem) => {
+  const formatDate = (item: Transacao) => {
     const d = item.data || item.dataHora;
     return d ? new Date(d).toLocaleString("pt-BR") : "—";
+  };
+
+  const getTipoLabel = (tipo?: string) => {
+    if (!tipo) return "Pagamento";
+    if (tipo === "bank_transfer" || tipo === "account_money" || tipo === "11") return "PIX";
+    if (tipo === "credit_card" || tipo === "1") return "Cartão de Crédito";
+    if (tipo === "debit_card" || tipo === "8") return "Cartão de Débito";
+    if (tipo === "CASH") return "Espécie";
+    return tipo;
   };
 
   return (
@@ -114,6 +145,19 @@ export default function Reembolso() {
         </div>
       </div>
 
+      {/* Total card */}
+      <Card className="border-destructive/30 bg-gradient-to-br from-destructive/10 to-destructive/5 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/20 border border-destructive/30">
+            <RotateCcw className="h-5 w-5 text-destructive" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Estornos</p>
+            <p className="font-display text-2xl font-bold text-destructive">{fmt(totalEstornos)}</p>
+          </div>
+        </div>
+      </Card>
+
       {error && (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
@@ -123,7 +167,7 @@ export default function Reembolso() {
       {items.length === 0 ? (
         <Card className="border-border bg-card/60 p-8 text-center">
           <RotateCcw className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Nenhum reembolso encontrado</p>
+          <p className="text-sm text-muted-foreground">Nenhum reembolso/estorno encontrado</p>
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
@@ -135,7 +179,7 @@ export default function Reembolso() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-foreground">Reembolso</p>
+                    <p className="text-sm font-medium text-foreground">Estorno - {getTipoLabel(item.tipo)}</p>
                     <p className="text-sm font-bold text-destructive">{fmt(toNum(item.valor))}</p>
                   </div>
                   <p className="text-xs text-muted-foreground">{formatDate(item)}</p>
@@ -144,13 +188,8 @@ export default function Reembolso() {
                       {item.estabelecimentoNome && `${item.estabelecimentoNome} - `}{item.maquinaNome}
                     </p>
                   )}
-                  {item.motivo && (
-                    <p className="text-xs text-muted-foreground/70 mt-1">{String(item.motivo)}</p>
-                  )}
-                  {item.status && (
-                    <span className="inline-block mt-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                      {String(item.status)}
-                    </span>
+                  {item.identificador && (
+                    <p className="text-xs text-muted-foreground/70 mt-1">{String(item.identificador)}</p>
                   )}
                 </div>
               </div>

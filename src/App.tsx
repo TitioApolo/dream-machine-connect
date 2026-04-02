@@ -62,6 +62,8 @@ function AppRoutes() {
         <Route path="/maquina/:id" element={<MaquinaDetalhe />} />
         <Route path="/pagamentos" element={<Pagamentos />} />
         <Route path="/transacoes" element={<Transacoes />} />
+        <Route path="/cartao-credito" element={<CartaoCredito />} />
+        <Route path="/reembolso" element={<Reembolso />} />
         <Route path="/premios" element={<Premios />} />
       </Route>
       <Route path="*" element={<NotFound />} />

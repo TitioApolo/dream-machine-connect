@@ -25,6 +25,7 @@ interface PremiosResponse {
 interface MaquinaItem {
   id: string;
   nome?: string;
+  estabelecimentoNome?: string;
 }
 
 interface ClienteItem {

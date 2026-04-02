@@ -10,6 +10,8 @@ const navItems = [
   { path: "/maquinas", label: "Máquinas", icon: Cpu },
   { path: "/pagamentos", label: "Pagamentos", icon: Wallet },
   { path: "/transacoes", label: "Transações", icon: Receipt },
+  { path: "/cartao-credito", label: "Cartão", icon: CreditCard },
+  { path: "/reembolso", label: "Reembolso", icon: RotateCcw },
   { path: "/premios", label: "Prêmios", icon: Gift },
 ];
 

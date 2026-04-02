@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, CreditCard, RotateCcw, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
 import { LogoLeao } from "@/components/LogoLeao";

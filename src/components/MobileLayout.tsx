@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, CreditCard, RotateCcw, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
 import { LogoLeao } from "@/components/LogoLeao";
@@ -10,6 +10,8 @@ const navItems = [
   { path: "/maquinas", label: "Máquinas", icon: Cpu },
   { path: "/pagamentos", label: "Pagamentos", icon: Wallet },
   { path: "/transacoes", label: "Transações", icon: Receipt },
+  { path: "/cartao-credito", label: "Cartão", icon: CreditCard },
+  { path: "/reembolso", label: "Reembolso", icon: RotateCcw },
   { path: "/premios", label: "Prêmios", icon: Gift },
 ];
 
@@ -59,7 +61,7 @@ export function MobileLayout() {
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-card/95 shadow-gold backdrop-blur-sm">
-        <div className="flex items-center justify-around py-2">
+        <div className="flex items-center overflow-x-auto scrollbar-hide py-2 px-1 gap-1">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
             return (

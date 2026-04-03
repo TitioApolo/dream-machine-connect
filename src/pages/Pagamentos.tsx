@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Wallet, TrendingUp, Banknote, CreditCard, RefreshCw, Cpu } from "lucide-react";
+import { Wallet, TrendingUp, Banknote, CreditCard, RefreshCw, Cpu, Smartphone } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { PaymentTypeFilter, type PaymentType } from "@/components/PaymentTypeFilter";
 
 interface MaquinaItem {
   id: string;
@@ -16,16 +17,14 @@ interface ClienteItem {
 }
 
 interface PagamentosData {
-  // Client fields
   total?: number | string;
   pix?: number | string;
   especie?: number | string;
   debito?: number | string;
+  credito?: number | string;
   creditoRemoto?: number | string;
-  // Admin fields
   cash?: number | string;
   creditosRemotos?: number | string;
-  credito?: number | string;
   [key: string]: unknown;
 }
 
@@ -37,6 +36,7 @@ interface MaquinaResumo {
   pix: number;
   especie: number;
   debito: number;
+  credito: number;
   creditoRemoto: number;
 }
 
@@ -55,11 +55,11 @@ export default function Pagamentos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [filter, setFilter] = useState<PaymentType>("all");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      // Fetch all machines
       let machines: (MaquinaItem & { estabelecimentoNome?: string })[] = [];
       if (isAdmin()) {
         const clientes = await apiFetch<ClienteItem[]>("/clientes");
@@ -71,7 +71,6 @@ export default function Pagamentos() {
         machines = Array.isArray(list) ? list : [];
       }
 
-      // Fetch pagamentos per machine
       const results: MaquinaResumo[] = [];
       await Promise.allSettled(
         machines.map(async (m) => {
@@ -86,6 +85,7 @@ export default function Pagamentos() {
               pix: toNum(data.pix),
               especie: toNum(data.especie ?? data.cash),
               debito: toNum(data.debito),
+              credito: toNum(data.credito),
               creditoRemoto: toNum(data.creditoRemoto ?? data.creditosRemotos),
             });
           } catch (err) {
@@ -100,25 +100,38 @@ export default function Pagamentos() {
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar pagamentos");
-      console.error("[Pagamentos] Error:", err);
     }
   }, []);
 
   useEffect(() => {
     fetchData().finally(() => setLoading(false));
     intervalRef.current = setInterval(fetchData, 30_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchData]);
 
   if (loading) return <LoadingSpinner text="Carregando pagamentos..." />;
+
+  const getFilteredValue = (r: MaquinaResumo): number => {
+    switch (filter) {
+      case "pix": return r.pix;
+      case "especie": return r.especie;
+      case "debito": return r.debito;
+      case "credito": return r.credito;
+      case "credito_remoto": return r.creditoRemoto;
+      default: return r.total;
+    }
+  };
 
   const grandTotal = resumos.reduce((acc, r) => acc + r.total, 0);
   const grandPix = resumos.reduce((acc, r) => acc + r.pix, 0);
   const grandEspecie = resumos.reduce((acc, r) => acc + r.especie, 0);
   const grandDebito = resumos.reduce((acc, r) => acc + r.debito, 0);
-  const grandCredito = resumos.reduce((acc, r) => acc + r.creditoRemoto, 0);
+  const grandCredito = resumos.reduce((acc, r) => acc + r.credito, 0);
+  const grandCreditoRemoto = resumos.reduce((acc, r) => acc + r.creditoRemoto, 0);
+
+  const filteredResumos = filter === "all" 
+    ? resumos 
+    : resumos.filter((r) => getFilteredValue(r) > 0);
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -151,17 +164,25 @@ export default function Pagamentos() {
           <StatRow icon={Banknote} label="PIX" value={fmt(grandPix)} color="text-blue-400" />
           <StatRow icon={Banknote} label="Espécie" value={fmt(grandEspecie)} color="text-green-400" />
           <StatRow icon={CreditCard} label="Débito" value={fmt(grandDebito)} color="text-yellow-400" />
-          <StatRow icon={CreditCard} label="Cred. Remoto" value={fmt(grandCredito)} color="text-purple-400" />
+          <StatRow icon={CreditCard} label="Crédito" value={fmt(grandCredito)} color="text-purple-400" />
+          <StatRow icon={Smartphone} label="Cred. Remoto" value={fmt(grandCreditoRemoto)} color="text-cyan-400" />
         </div>
       </Card>
 
+      {/* Payment type filter */}
+      <PaymentTypeFilter
+        selected={filter}
+        onChange={setFilter}
+        types={["all", "pix", "especie", "debito", "credito", "credito_remoto"]}
+      />
+
       {/* Per machine breakdown */}
-      {resumos.length > 0 && (
+      {filteredResumos.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
-            Por Máquina
+            Por Máquina {filter !== "all" && `(${filter === "credito_remoto" ? "Cred. Remoto" : filter.charAt(0).toUpperCase() + filter.slice(1)})`}
           </h2>
-          {resumos.map((r) => (
+          {filteredResumos.map((r) => (
             <Card key={r.id} className="border-border/40 bg-card/60 p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -175,20 +196,25 @@ export default function Pagamentos() {
                     )}
                   </div>
                 </div>
-                <p className="font-display text-base font-bold text-primary">{fmt(r.total)}</p>
+                <p className="font-display text-base font-bold text-primary">
+                  {fmt(filter === "all" ? r.total : getFilteredValue(r))}
+                </p>
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <StatRow icon={Banknote} label="PIX" value={fmt(r.pix)} color="text-blue-400" small />
-                <StatRow icon={Banknote} label="Espécie" value={fmt(r.especie)} color="text-green-400" small />
-                <StatRow icon={CreditCard} label="Débito" value={fmt(r.debito)} color="text-yellow-400" small />
-                <StatRow icon={CreditCard} label="C. Remoto" value={fmt(r.creditoRemoto)} color="text-purple-400" small />
-              </div>
+              {filter === "all" && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <StatRow icon={Banknote} label="PIX" value={fmt(r.pix)} color="text-blue-400" small />
+                  <StatRow icon={Banknote} label="Espécie" value={fmt(r.especie)} color="text-green-400" small />
+                  <StatRow icon={CreditCard} label="Débito" value={fmt(r.debito)} color="text-yellow-400" small />
+                  <StatRow icon={CreditCard} label="Crédito" value={fmt(r.credito)} color="text-purple-400" small />
+                  <StatRow icon={Smartphone} label="Cred. Remoto" value={fmt(r.creditoRemoto)} color="text-cyan-400" small />
+                </div>
+              )}
             </Card>
           ))}
         </div>
       )}
 
-      {resumos.length === 0 && !error && (
+      {filteredResumos.length === 0 && !error && (
         <Card className="border-border bg-card/60 p-8 text-center">
           <TrendingUp className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">Nenhum pagamento encontrado</p>

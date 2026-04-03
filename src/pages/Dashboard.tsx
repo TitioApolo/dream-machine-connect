@@ -1,20 +1,30 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { apiFetch, apiFetchFirst, isAdmin, getUserId, getUserType } from "@/lib/api";
+import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Cpu, TrendingUp, Users, Wifi, BarChart3, Zap } from "lucide-react";
+import { TrendingUp, Cpu, Zap, BarChart3, CreditCard, RotateCcw, Smartphone, RefreshCw, Trophy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface EstatisticasData {
+interface MaquinaItem {
+  id: string;
+  nome?: string;
+  estabelecimentoNome?: string;
+}
+
+interface ClienteItem {
+  id: string;
+  nome: string;
+  Maquina: MaquinaItem[];
+}
+
+interface PagamentosResponse {
+  pagamentos?: Array<Record<string, unknown>>;
   total?: number | string;
   pix?: number | string;
   especie?: number | string;
   debito?: number | string;
+  credito?: number | string;
   creditoRemoto?: number | string;
-  totalMaquinas?: number | string;
-  totalClientes?: number | string;
-  totalAtivas?: number | string;
-  totalOnline?: number | string;
-  maquinas?: Array<any>;
+  estornos?: number | string;
   [key: string]: unknown;
 }
 
@@ -24,124 +34,131 @@ const toNum = (v?: unknown): number => {
   return isNaN(n) ? 0 : n;
 };
 
-const fmt = (v: number) => {
-  return `R$ ${v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
-};
+const fmt = (v: number) =>
+  `R$ ${v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+
+interface DashTotals {
+  total: number;
+  pix: number;
+  especie: number;
+  debito: number;
+  credito: number;
+  creditoRemoto: number;
+  estornos: number;
+  premios: number;
+}
 
 export default function Dashboard() {
-  const [data, setData] = useState<EstatisticasData | null>(null);
+  const [totals, setTotals] = useState<DashTotals>({ total: 0, pix: 0, especie: 0, debito: 0, credito: 0, creditoRemoto: 0, estornos: 0, premios: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastUpdate, setLastUpdate] = useState(new Date());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const userId = getUserId();
-      const userType = getUserType();
-      
-      if (!userId) {
-        console.warn("[Dashboard] Aguardando identificação do usuário...");
-        return;
-      }
-
-      console.log("[Dashboard] Carregando estatísticas para:", { userId, userType });
-
-      // Se for ADMIN, tentamos várias rotas possíveis para evitar 404
-      let statsData: EstatisticasData;
-      if (userType === "ADMIN") {
-        statsData = await apiFetchFirst<EstatisticasData>([
-          "/estatisticas-gerais",
-          "/estatisticas-gerais-adm",
-          `/estatisticas-gerais/${userId}`
-        ]);
+      let machines: MaquinaItem[] = [];
+      if (isAdmin()) {
+        const clientes = await apiFetch<ClienteItem[]>("/clientes");
+        machines = Array.isArray(clientes)
+          ? clientes.flatMap((c) =>
+              (c.Maquina || []).map((m) => ({ ...m, estabelecimentoNome: c.nome }))
+            )
+          : [];
       } else {
-        statsData = await apiFetch<EstatisticasData>(`/estatisticas-gerais/${userId}`);
+        const list = await apiFetch<MaquinaItem[]>("/maquinas");
+        machines = Array.isArray(list) ? list : [];
       }
-      console.log("[Dashboard] Estatísticas:", statsData);
-      
-      setData(statsData || {});
+
+      const sums: DashTotals = { total: 0, pix: 0, especie: 0, debito: 0, credito: 0, creditoRemoto: 0, estornos: 0, premios: 0 };
+
+      await Promise.allSettled(
+        machines.map(async (m) => {
+          try {
+            const path = isAdmin() ? `/pagamentos-adm/${m.id}` : `/pagamentos/${m.id}`;
+            const data = await apiFetch<PagamentosResponse>(path);
+            sums.total += toNum(data.total);
+            sums.pix += toNum(data.pix);
+            sums.especie += toNum(data.especie);
+            sums.debito += toNum(data.debito);
+            sums.credito += toNum(data.credito);
+            sums.creditoRemoto += toNum(data.creditoRemoto);
+            sums.estornos += toNum(data.estornos);
+          } catch (err) {
+            console.warn(`[Dashboard] Erro máquina ${m.id}:`, err);
+          }
+        })
+      );
+
+      // Fetch premios
+      await Promise.allSettled(
+        machines.map(async (m) => {
+          try {
+            const path = isAdmin() ? `/premios-entregues-adm/${m.id}` : `/premios-entregues/${m.id}`;
+            const data = await apiFetch<{ total?: number | string }>(path);
+            sums.premios += toNum(data.total);
+          } catch {
+            // ignore
+          }
+        })
+      );
+
+      setTotals(sums);
       setLastUpdate(new Date());
+      setError("");
     } catch (err) {
-      console.warn("[Dashboard] Erro ao carregar estatísticas:", err);
       setError(err instanceof Error ? err.message : "Erro ao carregar dashboard");
     }
   }, []);
 
   useEffect(() => {
     fetchData().finally(() => setLoading(false));
-    // Atualizar a cada 5 segundos
-    intervalRef.current = setInterval(fetchData, 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    intervalRef.current = setInterval(fetchData, 30_000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchData]);
 
   if (loading) return <LoadingSpinner text="Carregando dashboard..." />;
 
   const stats = [
-    {
-      label: "Total",
-      value: fmt(toNum(data?.total)),
-      icon: TrendingUp,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-    },
-    {
-      label: "PIX",
-      value: fmt(toNum(data?.pix)),
-      icon: Cpu,
-      color: "text-blue-400",
-      bgColor: "bg-blue-400/10",
-    },
-    {
-      label: "Espécie",
-      value: fmt(toNum(data?.especie)),
-      icon: Zap,
-      color: "text-green-400",
-      bgColor: "bg-green-400/10",
-    },
-    {
-      label: "Débito",
-      value: fmt(toNum(data?.debito)),
-      icon: BarChart3,
-      color: "text-yellow-400",
-      bgColor: "bg-yellow-400/10",
-    },
+    { label: "Total", value: fmt(totals.total), icon: TrendingUp, color: "text-primary", bgColor: "bg-primary/10" },
+    { label: "PIX", value: fmt(totals.pix), icon: Cpu, color: "text-blue-400", bgColor: "bg-blue-400/10" },
+    { label: "Espécie", value: fmt(totals.especie), icon: Zap, color: "text-green-400", bgColor: "bg-green-400/10" },
+    { label: "Débito", value: fmt(totals.debito), icon: BarChart3, color: "text-yellow-400", bgColor: "bg-yellow-400/10" },
+    { label: "Cartão Crédito", value: fmt(totals.credito), icon: CreditCard, color: "text-purple-400", bgColor: "bg-purple-400/10" },
+    { label: "Crédito Remoto", value: fmt(totals.creditoRemoto), icon: Smartphone, color: "text-cyan-400", bgColor: "bg-cyan-400/10" },
+    { label: "Estornos", value: fmt(totals.estornos), icon: RotateCcw, color: "text-destructive", bgColor: "bg-destructive/10" },
+    { label: "Prêmios", value: fmt(totals.premios), icon: Trophy, color: "text-amber-400", bgColor: "bg-amber-400/10" },
   ];
 
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-wider text-foreground">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {isAdmin() ? "Visão geral do administrador" : "Sua visão geral"} • Atualizado às{" "}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-wider text-foreground">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isAdmin() ? "Visão geral do administrador" : "Sua visão geral"}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <RefreshCw className="h-3 w-3 animate-spin text-primary/60" style={{ animationDuration: "3s" }} />
           {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-        </p>
+        </div>
       </div>
 
-      {/* Error State */}
       {error && (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card
-              key={stat.label}
-              className="border-primary/20 bg-card/60 p-4 backdrop-blur-sm hover:border-primary/40 transition-colors"
-            >
+            <Card key={stat.label} className="border-primary/20 bg-card/60 p-4 backdrop-blur-sm hover:border-primary/40 transition-colors">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {stat.label}
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
                   <p className="mt-2 font-display text-lg font-bold text-foreground">{stat.value}</p>
                 </div>
                 <div className={`rounded-lg p-2.5 ${stat.bgColor}`}>

@@ -3,6 +3,7 @@ import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RotateCcw, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { PaymentTypeFilter, type PaymentType } from "@/components/PaymentTypeFilter";
 
 interface Transacao {
   id?: string;
@@ -52,6 +53,7 @@ export default function Reembolso() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [filter, setFilter] = useState<PaymentType>("all");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -82,7 +84,6 @@ export default function Reembolso() {
 
             sumEstornos += toNum(data.estornos);
 
-            // Filter refunded transactions
             const pagamentos = Array.isArray(data.pagamentos) ? data.pagamentos : [];
             const refunded = pagamentos.filter((p) => p.estornado === true);
             refunded.forEach((t) => {
@@ -126,7 +127,8 @@ export default function Reembolso() {
     return d ? new Date(d).toLocaleString("pt-BR") : "—";
   };
 
-  const getTipoLabel = (tipo?: string) => {
+  const getTipoLabel = (tipo?: string, tipoTransacao?: string) => {
+    if (tipoTransacao === "credito_remoto") return "Crédito Remoto";
     if (!tipo) return "Pagamento";
     if (tipo === "bank_transfer" || tipo === "account_money" || tipo === "11") return "PIX";
     if (tipo === "credit_card" || tipo === "1") return "Cartão de Crédito";
@@ -134,6 +136,17 @@ export default function Reembolso() {
     if (tipo === "CASH") return "Espécie";
     return tipo;
   };
+
+  const filtered = filter === "all"
+    ? items
+    : items.filter((t) => {
+        if (filter === "pix") return t.tipo === "bank_transfer" || t.tipo === "11" || t.tipo === "account_money";
+        if (filter === "especie") return t.tipo === "CASH";
+        if (filter === "debito") return t.tipo === "debit_card" || t.tipo === "8";
+        if (filter === "credito") return t.tipo === "credit_card" || t.tipo === "1";
+        if (filter === "credito_remoto") return t.tipoTransacao === "credito_remoto";
+        return true;
+      });
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -158,20 +171,27 @@ export default function Reembolso() {
         </div>
       </Card>
 
+      {/* Filter */}
+      <PaymentTypeFilter
+        selected={filter}
+        onChange={setFilter}
+        types={["all", "pix", "especie", "debito", "credito", "credito_remoto"]}
+      />
+
       {error && (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {items.length === 0 ? (
+      {filtered.length === 0 ? (
         <Card className="border-border bg-card/60 p-8 text-center">
           <RotateCcw className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">Nenhum reembolso/estorno encontrado</p>
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
-          {items.map((item, i) => (
+          {filtered.map((item, i) => (
             <Card key={item.id || i} className="border-border/40 bg-card/60 p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 border border-destructive/20">
@@ -179,7 +199,7 @@ export default function Reembolso() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-foreground">Estorno - {getTipoLabel(item.tipo)}</p>
+                    <p className="text-sm font-medium text-foreground">Estorno - {getTipoLabel(item.tipo, item.tipoTransacao)}</p>
                     <p className="text-sm font-bold text-destructive">{fmt(toNum(item.valor))}</p>
                   </div>
                   <p className="text-xs text-muted-foreground">{formatDate(item)}</p>

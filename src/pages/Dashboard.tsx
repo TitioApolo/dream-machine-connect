@@ -3,6 +3,7 @@ import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { TrendingUp, Cpu, Zap, BarChart3, CreditCard, RotateCcw, Smartphone, RefreshCw, Trophy } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { PaymentTypeFilter, type PaymentType } from "@/components/PaymentTypeFilter";
 
 interface MaquinaItem {
   id: string;
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [filter, setFilter] = useState<PaymentType>("all");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -90,15 +92,15 @@ export default function Dashboard() {
         })
       );
 
-      // Fetch premios
+      // Fetch premios - try without -adm suffix first
       await Promise.allSettled(
         machines.map(async (m) => {
           try {
-            const path = isAdmin() ? `/premios-entregues-adm/${m.id}` : `/premios-entregues/${m.id}`;
+            const path = `/premios-entregues/${m.id}`;
             const data = await apiFetch<{ total?: number | string }>(path);
             sums.premios += toNum(data.total);
           } catch {
-            // ignore
+            // ignore - endpoint may not exist
           }
         })
       );
@@ -119,16 +121,20 @@ export default function Dashboard() {
 
   if (loading) return <LoadingSpinner text="Carregando dashboard..." />;
 
-  const stats = [
-    { label: "Total", value: fmt(totals.total), icon: TrendingUp, color: "text-primary", bgColor: "bg-primary/10" },
-    { label: "PIX", value: fmt(totals.pix), icon: Cpu, color: "text-blue-400", bgColor: "bg-blue-400/10" },
-    { label: "Espécie", value: fmt(totals.especie), icon: Zap, color: "text-green-400", bgColor: "bg-green-400/10" },
-    { label: "Débito", value: fmt(totals.debito), icon: BarChart3, color: "text-yellow-400", bgColor: "bg-yellow-400/10" },
-    { label: "Crédito", value: fmt(totals.credito), icon: CreditCard, color: "text-purple-400", bgColor: "bg-purple-400/10" },
-    { label: "Crédito Remoto", value: fmt(totals.creditoRemoto), icon: Smartphone, color: "text-cyan-400", bgColor: "bg-cyan-400/10" },
-    { label: "Estornos", value: fmt(totals.estornos), icon: RotateCcw, color: "text-destructive", bgColor: "bg-destructive/10" },
-    { label: "Prêmios", value: fmt(totals.premios), icon: Trophy, color: "text-amber-400", bgColor: "bg-amber-400/10" },
+  const allStats = [
+    { label: "Total", value: fmt(totals.total), icon: TrendingUp, color: "text-primary", bgColor: "bg-primary/10", type: "all" as PaymentType },
+    { label: "PIX", value: fmt(totals.pix), icon: Cpu, color: "text-blue-400", bgColor: "bg-blue-400/10", type: "pix" as PaymentType },
+    { label: "Espécie", value: fmt(totals.especie), icon: Zap, color: "text-green-400", bgColor: "bg-green-400/10", type: "especie" as PaymentType },
+    { label: "Débito", value: fmt(totals.debito), icon: BarChart3, color: "text-yellow-400", bgColor: "bg-yellow-400/10", type: "debito" as PaymentType },
+    { label: "Crédito", value: fmt(totals.credito), icon: CreditCard, color: "text-purple-400", bgColor: "bg-purple-400/10", type: "credito" as PaymentType },
+    { label: "Crédito Remoto", value: fmt(totals.creditoRemoto), icon: Smartphone, color: "text-cyan-400", bgColor: "bg-cyan-400/10", type: "credito_remoto" as PaymentType },
+    { label: "Estornos", value: fmt(totals.estornos), icon: RotateCcw, color: "text-destructive", bgColor: "bg-destructive/10", type: "estorno" as PaymentType },
+    { label: "Prêmios", value: fmt(totals.premios), icon: Trophy, color: "text-amber-400", bgColor: "bg-amber-400/10", type: "all" as PaymentType },
   ];
+
+  const filteredStats = filter === "all"
+    ? allStats
+    : allStats.filter((s) => s.type === filter || s.type === "all");
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -151,8 +157,15 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Filter */}
+      <PaymentTypeFilter
+        selected={filter}
+        onChange={setFilter}
+        types={["all", "pix", "especie", "debito", "credito", "credito_remoto", "estorno"]}
+      />
+
       <div className="grid grid-cols-2 gap-3">
-        {stats.map((stat) => {
+        {filteredStats.map((stat) => {
           const Icon = stat.icon;
           return (
             <Card key={stat.label} className="border-primary/20 bg-card/60 p-4 backdrop-blur-sm hover:border-primary/40 transition-colors">

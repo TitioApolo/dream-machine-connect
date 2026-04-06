@@ -1,17 +1,15 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, CreditCard, RotateCcw, LogOut } from "lucide-react";
+import { LayoutDashboard, Cpu, Receipt, Wallet, Gift, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
-import { LogoLeao } from "@/components/LogoLeao";
 import { cn } from "@/lib/utils";
+import logoShield from "@/assets/logo-leao-shield.png";
 
 const navItems = [
   { path: "/dashboard", label: "Início", icon: LayoutDashboard },
   { path: "/maquinas", label: "Máquinas", icon: Cpu },
   { path: "/pagamentos", label: "Pagamentos", icon: Wallet },
   { path: "/transacoes", label: "Transações", icon: Receipt },
-  { path: "/cartao-credito", label: "Cartão", icon: CreditCard },
-  { path: "/reembolso", label: "Reembolso", icon: RotateCcw },
   { path: "/premios", label: "Prêmios", icon: Gift },
 ];
 
@@ -30,8 +28,8 @@ export function MobileLayout() {
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-primary/20 bg-card/95 px-4 py-3 shadow-gold backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 p-1">
-            <LogoLeao size={32} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 p-0.5">
+            <img src={logoShield} alt="Pix Machine" className="h-9 w-9 object-contain" />
           </div>
           <div>
             <h1 className="font-display text-base font-bold tracking-wider text-primary leading-none">PIX MACHINE</h1>

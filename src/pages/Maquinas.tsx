@@ -139,9 +139,11 @@ export default function Maquinas() {
                 className="group w-full rounded-2xl border border-primary/10 bg-card p-4 shadow-card text-left transition-all active:scale-[0.98] hover:border-primary/30 hover:shadow-gold"
               >
                 <div className="flex items-start gap-3">
-                  {/* Machine icon */}
+                  {/* Machine icon - initial letter */}
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
-                    <span className="text-2xl">🧸</span>
+                    <span className="font-display text-xl font-bold text-primary">
+                      {(m.nome || m.descricao || m.localizacao || "M").charAt(0).toUpperCase()}
+                    </span>
                   </div>
 
                   {/* Content */}

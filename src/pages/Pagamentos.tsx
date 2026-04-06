@@ -173,7 +173,7 @@ export default function Pagamentos() {
       <PaymentTypeFilter
         selected={filter}
         onChange={setFilter}
-        types={["all", "pix", "especie", "debito", "credito", "credito_remoto"]}
+        types={["all", "pix", "especie", "debito", "credito", "credito_remoto", "estorno"]}
       />
 
       {/* Per machine breakdown */}

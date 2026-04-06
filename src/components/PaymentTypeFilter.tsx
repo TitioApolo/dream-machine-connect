@@ -29,7 +29,7 @@ const TYPE_COLORS: Record<PaymentType, string> = {
   estorno: "border-destructive/50 bg-destructive/20 text-destructive",
 };
 
-const DEFAULT_TYPES: PaymentType[] = ["all", "pix", "especie", "debito", "credito", "credito_remoto"];
+const DEFAULT_TYPES: PaymentType[] = ["all", "pix", "especie", "debito", "credito", "credito_remoto", "estorno"];
 
 export function PaymentTypeFilter({ selected, onChange, types = DEFAULT_TYPES }: PaymentTypeFilterProps) {
   return (

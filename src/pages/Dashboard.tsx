@@ -124,7 +124,7 @@ export default function Dashboard() {
     { label: "PIX", value: fmt(totals.pix), icon: Cpu, color: "text-blue-400", bgColor: "bg-blue-400/10" },
     { label: "Espécie", value: fmt(totals.especie), icon: Zap, color: "text-green-400", bgColor: "bg-green-400/10" },
     { label: "Débito", value: fmt(totals.debito), icon: BarChart3, color: "text-yellow-400", bgColor: "bg-yellow-400/10" },
-    { label: "Cartão Crédito", value: fmt(totals.credito), icon: CreditCard, color: "text-purple-400", bgColor: "bg-purple-400/10" },
+    { label: "Crédito", value: fmt(totals.credito), icon: CreditCard, color: "text-purple-400", bgColor: "bg-purple-400/10" },
     { label: "Crédito Remoto", value: fmt(totals.creditoRemoto), icon: Smartphone, color: "text-cyan-400", bgColor: "bg-cyan-400/10" },
     { label: "Estornos", value: fmt(totals.estornos), icon: RotateCcw, color: "text-destructive", bgColor: "bg-destructive/10" },
     { label: "Prêmios", value: fmt(totals.premios), icon: Trophy, color: "text-amber-400", bgColor: "bg-amber-400/10" },

@@ -75,7 +75,7 @@ export default function Transacoes() {
       if (isAdmin()) {
         const clientes = await apiFetch<ClienteItem[]>("/clientes");
         machines = Array.isArray(clientes) ? clientes.flatMap((c) => 
-          (c.Maquina || []).map(m => ({ ...m, estabelecimentoNome: c.nome }))
+          (c.Maquina || []).map(m => ({ ...m, estabelecimentoNome: m.descricao || m.nome || c.nome }))
         ) : [];
       } else {
         const list = await apiFetch<MaquinaItem[]>("/maquinas");

@@ -29,6 +29,7 @@ interface Transacao {
 interface MaquinaItem {
   id: string;
   nome?: string;
+  descricao?: string;
 }
 
 interface ClienteItem {

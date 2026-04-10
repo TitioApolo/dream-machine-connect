@@ -8,6 +8,7 @@ import { PaymentTypeFilter, type PaymentType } from "@/components/PaymentTypeFil
 interface MaquinaItem {
   id: string;
   nome?: string;
+  descricao?: string;
   estabelecimentoNome?: string;
 }
 

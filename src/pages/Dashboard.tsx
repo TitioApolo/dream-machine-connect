@@ -22,10 +22,13 @@ interface PagamentosResponse {
   total?: number | string;
   pix?: number | string;
   especie?: number | string;
+  cash?: number | string;
   debito?: number | string;
   credito?: number | string;
   creditoRemoto?: number | string;
+  creditosRemotos?: number | string;
   estornos?: number | string;
+  estoque?: number | string;
   [key: string]: unknown;
 }
 
@@ -81,29 +84,19 @@ export default function Dashboard() {
             const data = await apiFetch<PagamentosResponse>(path);
             sums.total += toNum(data.total);
             sums.pix += toNum(data.pix);
-            sums.especie += toNum(data.especie);
+            sums.especie += toNum(data.especie ?? data.cash);
             sums.debito += toNum(data.debito);
             sums.credito += toNum(data.credito);
-            sums.creditoRemoto += toNum(data.creditoRemoto);
+            sums.creditoRemoto += toNum(data.creditoRemoto ?? data.creditosRemotos);
             sums.estornos += toNum(data.estornos);
+            sums.premios += toNum(data.estoque);
           } catch (err) {
             console.warn(`[Dashboard] Erro máquina ${m.id}:`, err);
           }
         })
       );
 
-      // Fetch premios - try without -adm suffix first
-      await Promise.allSettled(
-        machines.map(async (m) => {
-          try {
-            const path = `/premios-entregues/${m.id}`;
-            const data = await apiFetch<{ total?: number | string }>(path);
-            sums.premios += toNum(data.total);
-          } catch {
-            // ignore - endpoint may not exist
-          }
-        })
-      );
+      // premios already accumulated from estoque field above
 
       setTotals(sums);
       setLastUpdate(new Date());

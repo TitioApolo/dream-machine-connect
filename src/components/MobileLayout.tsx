@@ -57,32 +57,40 @@ export function MobileLayout() {
         <Outlet />
       </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-card/95 shadow-gold backdrop-blur-sm">
-        <div className="flex items-center overflow-x-auto scrollbar-hide py-2 px-1 gap-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs transition-all",
-                  isActive
-                    ? "font-bold text-primary"
-                    : "text-muted-foreground active:text-foreground"
-                )}
-              >
-                <item.icon
+      {/* Bottom Nav - Floating pill style */}
+      <nav className="fixed bottom-4 left-4 right-4 z-50">
+        <div className="mx-auto max-w-md rounded-2xl border border-primary/20 bg-card/95 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,215,0,0.1)] backdrop-blur-xl">
+          <div className="flex items-center justify-around py-2 px-2">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
                   className={cn(
-                    "h-5 w-5",
-                    isActive && "text-primary drop-shadow-[0_0_6px_hsl(45,100%,50%,0.5)]"
+                    "relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 text-[10px] font-medium transition-all duration-200",
+                    isActive
+                      ? "text-primary"
+                      : "text-muted-foreground active:scale-95 hover:text-foreground"
                   )}
-                />
-                {item.label}
-              </button>
-            );
-          })}
+                >
+                  {isActive && (
+                    <span className="absolute inset-0 rounded-xl bg-primary/10 border border-primary/20" />
+                  )}
+                  <item.icon
+                    className={cn(
+                      "relative z-10 h-5 w-5 transition-all",
+                      isActive && "text-primary drop-shadow-[0_0_8px_hsl(45,100%,50%,0.6)]"
+                    )}
+                  />
+                  <span className="relative z-10">{item.label}</span>
+                  {isActive && (
+                    <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-primary shadow-[0_0_6px_hsl(45,100%,50%,0.5)]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </nav>
     </div>

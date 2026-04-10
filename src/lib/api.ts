@@ -1,4 +1,4 @@
-const API_BASE = "https://dreams-machine-7e6a3c0a6e6e.herokuapp.com";
+const API_BASE = "https://server.pixmachineapp.com.br";
 
 export type LoginTipo = "cliente" | "pessoa";
 

@@ -8,6 +8,7 @@ import { PaymentTypeFilter, type PaymentType } from "@/components/PaymentTypeFil
 interface MaquinaItem {
   id: string;
   nome?: string;
+  descricao?: string;
   estabelecimentoNome?: string;
 }
 
@@ -67,7 +68,7 @@ export default function Dashboard() {
         const clientes = await apiFetch<ClienteItem[]>("/clientes");
         machines = Array.isArray(clientes)
           ? clientes.flatMap((c) =>
-              (c.Maquina || []).map((m) => ({ ...m, estabelecimentoNome: c.nome }))
+              (c.Maquina || []).map((m) => ({ ...m, estabelecimentoNome: m.descricao || m.nome || c.nome }))
             )
           : [];
       } else {

@@ -1,30 +1,28 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { apiFetch, isAdmin } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Gift, RefreshCw } from "lucide-react";
+import { Gift, RefreshCw, Package } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 interface PremioItem {
   id?: string;
   data?: string;
   dataHora?: string;
+  valor?: string | number;
   quantidade?: number;
   observacao?: string;
+  tipo?: string;
+  tipoTransacao?: string;
+  identificador?: string;
   maquinaNome?: string;
   estabelecimentoNome?: string;
-  [key: string]: unknown;
-}
-
-interface PremiosResponse {
-  premios?: PremioItem[];
-  totalEntregues?: number;
-  estoqueAtual?: number;
   [key: string]: unknown;
 }
 
 interface MaquinaItem {
   id: string;
   nome?: string;
+  descricao?: string;
   estabelecimentoNome?: string;
 }
 
@@ -34,8 +32,22 @@ interface ClienteItem {
   Maquina: MaquinaItem[];
 }
 
+interface PagamentosResponse {
+  estoque?: number | string;
+  pagamentos?: PremioItem[];
+  dadosUnificados?: PremioItem[];
+  [key: string]: unknown;
+}
+
+const toNum = (v?: unknown): number => {
+  if (v == null) return 0;
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+};
+
 export default function Premios() {
   const [premios, setPremios] = useState<PremioItem[]>([]);
+  const [estoqueTotal, setEstoqueTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -43,34 +55,37 @@ export default function Premios() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Step 1: fetch all machines
       let machines: MaquinaItem[] = [];
       if (isAdmin()) {
         const clientes = await apiFetch<ClienteItem[]>("/clientes");
-        machines = Array.isArray(clientes) ? clientes.flatMap((c) => c.Maquina ? c.Maquina.map(m => ({...m, estabelecimentoNome: c.nome})) : []) : [];
+        machines = Array.isArray(clientes) ? clientes.flatMap((c) =>
+          (c.Maquina || []).map(m => ({ ...m, estabelecimentoNome: m.descricao || m.nome || c.nome }))
+        ) : [];
       } else {
         const list = await apiFetch<MaquinaItem[]>("/maquinas");
         machines = Array.isArray(list) ? list : [];
       }
 
-      // Step 2: fetch prizes per machine
       const allPremios: PremioItem[] = [];
+      let totalEstoque = 0;
+
       await Promise.allSettled(
         machines.map(async (m) => {
           try {
-            const path = isAdmin()
-              ? `/premios-entregues-adm/${m.id}`
-              : `/premios-entregues/${m.id}`;
-            const data = await apiFetch<PremiosResponse | PremioItem[]>(path);
-            // Backend may return { premios: [...] } or an array directly
-            let list: PremioItem[] = [];
-            if (Array.isArray(data)) {
-              list = data;
-            } else if (data && typeof data === "object" && Array.isArray((data as PremiosResponse).premios)) {
-              list = (data as PremiosResponse).premios!;
-            }
-            list.forEach((p) => {
-              allPremios.push({ ...p, maquinaNome: m.nome || m.id, estabelecimentoNome: m.estabelecimentoNome });
+            const path = isAdmin() ? `/pagamentos-adm/${m.id}` : `/pagamentos/${m.id}`;
+            const data = await apiFetch<PagamentosResponse>(path);
+            totalEstoque += toNum(data.estoque);
+
+            // Extract credito_remoto transactions as "premios"
+            const list = (data.pagamentos ?? data.dadosUnificados ?? []) as PremioItem[];
+            list.forEach((t) => {
+              if (t.tipoTransacao === "credito_remoto") {
+                allPremios.push({
+                  ...t,
+                  maquinaNome: m.nome || m.id,
+                  estabelecimentoNome: m.estabelecimentoNome || m.descricao,
+                });
+              }
             });
           } catch (err) {
             console.warn(`[Premios] Erro máquina ${m.id}:`, err);
@@ -78,7 +93,6 @@ export default function Premios() {
         })
       );
 
-      // Sort by date descending
       allPremios.sort((a, b) => {
         const da = a.data || a.dataHora;
         const db = b.data || b.dataHora;
@@ -86,20 +100,18 @@ export default function Premios() {
       });
 
       setPremios(allPremios);
+      setEstoqueTotal(totalEstoque);
       setLastUpdate(new Date());
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar prêmios");
-      console.error("[Premios] Error:", err);
     }
   }, []);
 
   useEffect(() => {
     fetchData().finally(() => setLoading(false));
     intervalRef.current = setInterval(fetchData, 30_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchData]);
 
   if (loading) return <LoadingSpinner text="Carregando prêmios..." />;
@@ -112,7 +124,7 @@ export default function Premios() {
   return (
     <div className="animate-fade-in space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold tracking-wider text-foreground">Prêmios Entregues</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wider text-foreground">Prêmios</h1>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <RefreshCw className="h-3 w-3 animate-spin text-primary/60" style={{ animationDuration: "3s" }} />
           {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -124,6 +136,23 @@ export default function Premios() {
           {error}
         </div>
       )}
+
+      {/* Estoque summary */}
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-gold">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
+            <Package className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Estoque Total</p>
+            <p className="font-display text-2xl font-bold text-primary">{estoqueTotal}</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-xs text-muted-foreground">Créditos entregues</p>
+            <p className="font-display text-lg font-bold text-foreground">{premios.length}</p>
+          </div>
+        </div>
+      </Card>
 
       {premios.length === 0 ? (
         <Card className="border-border bg-card/60 p-8 text-center">
@@ -140,18 +169,17 @@ export default function Premios() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">
-                    {p.quantidade != null
-                      ? `${p.quantidade}x prêmio${p.quantidade > 1 ? "s" : ""}`
-                      : "Prêmio entregue"}
+                    {p.valor ? `R$ ${toNum(p.valor).toFixed(2).replace(".", ",")}` : "Crédito remoto"}
+                    {p.tipo && <span className="ml-1.5 text-xs text-muted-foreground">({p.tipo})</span>}
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDate(p)}</p>
-                  {(p.maquinaNome || p.estabelecimentoNome) && (
+                  {(p.estabelecimentoNome || p.maquinaNome) && (
                     <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                      {p.estabelecimentoNome && `${p.estabelecimentoNome} - `}{p.maquinaNome}
+                      {p.estabelecimentoNome && `${p.estabelecimentoNome} · `}{p.maquinaNome}
                     </p>
                   )}
-                  {p.observacao && (
-                    <p className="text-xs text-muted-foreground/70 mt-1">{String(p.observacao)}</p>
+                  {p.identificador && (
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{p.identificador}</p>
                   )}
                 </div>
               </div>

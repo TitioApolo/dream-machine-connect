@@ -22,10 +22,13 @@ interface PagamentosResponse {
   total?: number | string;
   pix?: number | string;
   especie?: number | string;
+  cash?: number | string;
   debito?: number | string;
   credito?: number | string;
   creditoRemoto?: number | string;
+  creditosRemotos?: number | string;
   estornos?: number | string;
+  estoque?: number | string;
   [key: string]: unknown;
 }
 
